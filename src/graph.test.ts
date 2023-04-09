@@ -226,7 +226,7 @@ describe('ngraph', () => {
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)(path)
         var forwardPath: Array<Node<Lock>> = []
-        const locker = makeLocker("serena1", (nextNodes) => { forwardPath = nextNodes })
+        const locker = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -426,10 +426,18 @@ describe('ngraph', () => {
             x => x.id,
             x => x.id
         )
-        var s1NextPath: Array<Node<Lock>> = []
-        var s2NextPath: Array<Node<Lock>> = []
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1NextPath = nextNodes }).lockNext
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2NextPath = nextNodes }).lockNext
+        const s1NextPaths: Array<Array<Node<Lock>>> = []
+        const s2NextPaths: Array<Array<Node<Lock>>> = []
+        var s1calls = 0
+        var s2calls = 0
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => {
+            s1NextPaths.push(nextNodes)
+            s1calls++
+        }).lockNext
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => {
+            s2NextPaths.push(nextNodes)
+            s2calls++
+        }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -461,8 +469,8 @@ describe('ngraph', () => {
         expect(linkGI.data.isLocked()).toBeFalsy()
 
         // and we have no forward paths yet
-        expect(s1NextPath).toEqual([])
-        expect(s2NextPath).toEqual([])
+        expect(s1NextPaths).toEqual([])
+        expect(s2NextPaths).toEqual([])
 
         s1LockNext('a')
         // its current and next nodes are locked
@@ -484,7 +492,8 @@ describe('ngraph', () => {
         expect(linkFG.data.isLocked()).toBeTruthy()
         // expect(linkGH.data.isLocked()).toBeFalsy() // not bidrections, we dont care
 
-        expect(s1NextPath).toEqual([nodeA, nodeC])
+        expect(s1NextPaths).toEqual([[nodeA, nodeC]])
+        expect(s1calls).toEqual(1)
 
         // a following robot appears
         s2LockNext('b')
@@ -501,32 +510,40 @@ describe('ngraph', () => {
         expect(nodeH.data.isLocked()).toBeFalsy()
         expect(nodeI.data.isLocked()).toBeFalsy()
 
-        expect(s2NextPath).toEqual([nodeB])
+        expect(s2NextPaths).toEqual([[nodeB]])
+        expect(s2calls).toEqual(1)
 
         // s1 moves to its next node
         s1LockNext('c')
-        expect(s1NextPath).toEqual([nodeC, nodeD])
-        expect(s2NextPath).toEqual([nodeB])
+        expect(s1NextPaths.at(-1)).toEqual([nodeC, nodeD])
+        expect(s2NextPaths.at(-1)).toEqual([nodeB])
+        expect(s1calls).toEqual(2)
+        expect(s2calls).toEqual(1)
 
         // s1 moves to its next node again
         s1LockNext('d')
-        expect(s1NextPath).toEqual([nodeD, nodeE])
-        expect(s2NextPath).toEqual([nodeB, nodeC]) // nodeC can now be obtained by s2
+        expect(s1NextPaths.at(-1)).toEqual([nodeD, nodeE])
+        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC]) // nodeC can now be obtained by s2
+        expect(s2NextPaths).toEqual([[nodeB], [nodeB, nodeC]]) // nodeC can now be obtained by s2
+        expect(s1calls).toEqual(3)
+        expect(s2calls).toEqual(2)
 
         // s1 moves to its next node again
         s1LockNext('e')
-        expect(s1NextPath).toEqual([nodeE, nodeF])
-        expect(s2NextPath).toEqual([nodeB, nodeC])
+        expect(s1NextPaths.at(-1)).toEqual([nodeE, nodeF])
+        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC])
+        expect(s1calls).toEqual(4)
+        //expect(s2calls).toEqual(2)
 
         // s1 moves to its next node again
         s1LockNext('f')
-        expect(s1NextPath).toEqual([nodeF, nodeG])
-        expect(s2NextPath).toEqual([nodeB, nodeC])
+        expect(s1NextPaths.at(-1)).toEqual([nodeF, nodeG])
+        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC])
 
         // s2 moves to its next node
         s2LockNext('c')
-        expect(s1NextPath).toEqual([nodeF, nodeG])
-        expect(s2NextPath).toEqual([nodeC, nodeD])
+        expect(s1NextPaths.at(-1)).toEqual([nodeF, nodeG])
+        expect(s2NextPaths.at(-1)).toEqual([nodeC, nodeD])
 
         // lets confirm all the locks
         expect(nodeA.data.isLocked()).toBeFalsy()
