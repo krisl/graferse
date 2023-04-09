@@ -35,37 +35,37 @@ describe('no dependencies', () => {
             lock => lockToString.get(lock) // what we are going to give current nodes in
         )
 
-        var forwardPath1: Array<Lock> = []
-        var forwardPath2: Array<Lock> = []
+        const forwardPaths1: Array<Array<Lock>> = []
+        const forwardPaths2: Array<Array<Lock>> = []
 
         const test1At = makeLocker(path1)(
             "test1",
-            (nextNodes) => { forwardPath1 = nextNodes }
+            (nextNodes) => { forwardPaths1.push(nextNodes) }
         )
 
         const test2At = makeLocker(path2)(
             "test2",
-            (nextNodes) => { forwardPath2 = nextNodes }
+            (nextNodes) => { forwardPaths2.push(nextNodes) }
         )
 
-        expect(forwardPath1).toEqual([])
-        expect(forwardPath2).toEqual([])
+        expect(forwardPaths1).toEqual([])
+        expect(forwardPaths2).toEqual([])
 
         test1At.lockNext('nodeA')
-        expect(forwardPath1).toEqual([nodeA, nodeB])
-        expect(forwardPath2).toEqual([])
+        expect(forwardPaths1).toEqual([[nodeA, nodeB]])
+        expect(forwardPaths2).toEqual([])
 
         test2At.lockNext('nodeX')
-        expect(forwardPath1).toEqual([nodeA, nodeB])
-        expect(forwardPath2).toEqual([nodeX]) // only nodeX because nodeB is locked
+        expect(forwardPaths1.at(-1)).toEqual([nodeA, nodeB])
+        expect(forwardPaths2.at(-1)).toEqual([nodeX]) // only nodeX because nodeB is locked
 
         test1At.lockNext('nodeB')
-        expect(forwardPath1).toEqual([nodeB, nodeC])
-        expect(forwardPath2).toEqual([nodeX]) // only nodeX because nodeB is still locked
+        expect(forwardPaths1.at(-1)).toEqual([nodeB, nodeC])
+        expect(forwardPaths2.at(-1)).toEqual([nodeX]) // only nodeX because nodeB is still locked
 
         test1At.lockNext('nodeC')
-        expect(forwardPath1).toEqual([nodeC])
-        expect(forwardPath2).toEqual([nodeX, nodeB]) // nodeB is now unlocked
+        expect(forwardPaths1.at(-1)).toEqual([nodeC])
+        expect(forwardPaths2.at(-1)).toEqual([nodeX, nodeB]) // nodeB is now unlocked
 
         test1At.clearAllLocks()
         //expect(forwardPath1).toEqual([])
@@ -73,7 +73,7 @@ describe('no dependencies', () => {
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPath2).toEqual([nodeB, nodeX]) // no change
+        //expect(forwardPaths2).toEqual([nodeB, nodeX]) // no change
         expect(nodeX.isLocked()).toBeTruthy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
@@ -84,7 +84,7 @@ describe('no dependencies', () => {
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPath2).toEqual([]) // no change
+        //expect(forwardPaths2).toEqual([]) // no change
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
@@ -650,7 +650,7 @@ describe('ngraph', () => {
         expect(linkBA.data.isLocked("agent1")).toBeTruthy()
         expect(linkCE.data.isLocked()).toBeFalsy()
 
-        console.dir({s2Path}, {depth: null})
+        //console.dir({s2Path}, {depth: null})
 
     })
 
