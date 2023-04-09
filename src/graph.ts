@@ -153,11 +153,11 @@ function makeMakeLocker<T> (
                     // at least release all previous links in path
                     whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
                     if (i > 0)
-                        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                        getLockForLink(path[i-1], path[i]).unlock(byWhom)
                 } else
                     if (i === currentIdx) {
                         if (i > 0)
-                            whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                            getLockForLink(path[i-1], path[i]).unlock(byWhom)
                         getLock(path[i]).forceLock(byWhom)
                         if (tryLockAllBidirectionalEdges(i) === "CON")
                             break
@@ -190,8 +190,8 @@ function makeMakeLocker<T> (
                 const whoCanMoveNow = new Set<string|undefined>()
                 for (let i = 0; i < path.length; i++) {
                     whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
-                    if (i < path.length -1) // expect the last node
-                        whoCanMoveNow.add(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                    if (i < path.length -1)
+                        getLockForLink(path[i], path[i+1]).unlock(byWhom)
                 }
                 for (const waiter of whoCanMoveNow) {
                     if (waiter) {
