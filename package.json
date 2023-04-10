@@ -12,6 +12,8 @@
     "lint": "tslint -p tsconfig.json",
     "test": "jest"
   },
+  "prepublishOnly": "npm test && npm run lint",
+  "preversion": "npm run lint",
   "keywords": [],
   "author": "",
   "license": "ISC",
