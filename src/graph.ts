@@ -1,9 +1,21 @@
 class Lock {
     lockedBy: Set<string> = new Set()
+    waiting: Set<string> = new Set()
 
     requestLock (byWhom: string) {
-        if (!this.isLocked())
+        if (!this.isLocked()) {
             this.forceLock(byWhom)
+            return true
+        }
+
+        if (this.isLocked(byWhom)) {
+            console.warn("Why are you locking your own node?", {byWhom})
+            return true
+        }
+
+        console.log(`Node is locked, ${byWhom} is waiting`)
+        this.waiting.add(byWhom)
+        return false
     }
 
     forceLock (byWhom: string) {
@@ -12,6 +24,13 @@ class Lock {
 
     unlock (byWhom: string) {
         this.lockedBy.delete(byWhom)
+
+        if (!this.isLocked()) {
+            // dequeue a waiter
+            const [waiter] = this.waiting
+            this.waiting.delete(waiter)
+            return waiter
+        }
     }
 
     isLocked(byWhom?: string) {
