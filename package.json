@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc",
     "lint": "tslint -p tsconfig.json",
-    "test": "jest"
+    "test": "jest",
+    "test:cover": "jest --coverage"
   },
   "prepublishOnly": "npm test && npm run lint",
   "preversion": "npm run lint",
