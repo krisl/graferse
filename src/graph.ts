@@ -94,7 +94,7 @@ function makeMakeLocker<T> (
 ) {
     const lastCallCache = new Map<string,any>()
 
-    type NextNodes = (nextNodes: T[]) => void
+    type NextNodes = (nextNodes: T[], remaining: number) => void
     return (path: T[]) => (byWhom: string, callback: NextNodes) => {
 
         // given an index in the path, tries to lock all bidirectional edges
@@ -173,7 +173,7 @@ function makeMakeLocker<T> (
                             break;
             }
 
-            callback(path.filter(node => getLock(node).isLocked(byWhom)))
+            callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
 
             for (const waiter of whoCanMoveNow) {
                 if (waiter) {
