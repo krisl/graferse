@@ -40,18 +40,23 @@ class Lock {
     }
 }
 
-function makeMakeLocker<T> (getLock: (x: T) => Lock) {
+function makeMakeLocker<T> (
+        getLock: (x: T) => Lock,
+        identity: (x: T) => any = x => x
+) {
     const lastCallCache = new Map<string,any>()
 
     type NextNodes = (nextNodes: T[]) => void
     return (path: T[]) => (byWhom: string, callback: NextNodes) => {
 
-        const lockNext = (currentNode: T) => {
+        const lockNext = (currentNode: any) => {
             lastCallCache.set(byWhom, () => lockNext(currentNode))
 
-            const currentIdx = path.findIndex(node => node === currentNode)
-            if (currentIdx === -1)
+            const currentIdx = path.findIndex(node => identity(node) === currentNode)
+            if (currentIdx === -1) {
+                console.error(`Couldnt find "${currentNode}" in ${JSON.stringify(path)}`)
                 throw new Error("Wheres your node?")
+            }
 
             const beforeCount = 0, afterCount = 1
             const lastIdx = path.length -1
