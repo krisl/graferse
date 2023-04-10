@@ -94,17 +94,19 @@ describe('ngraph', () => {
         const nodeA = graph.addNode('a', new Lock())
         const nodeB = graph.addNode('b', new Lock())
         const nodeC = graph.addNode('c', new Lock())
+        const nodeD = graph.addNode('d', new Lock())
 
         // A
         //  \
-        //   ----> C
+        //   ----> C ----> D
         //  /
         // B
         graph.addLink('a', 'c')
         graph.addLink('b', 'c')
+        graph.addLink('c', 'd')
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
-        const s1Path = pathFinder.find('a', 'c').reverse()
+        const s1Path = pathFinder.find('a', 'd').reverse()
         const s2Path = pathFinder.find('b', 'c').reverse()
 
         var s1ForwardPath: Array<Node<Lock>> = []
@@ -117,6 +119,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(nodeD.data.isLocked()).toBeFalsy()
         expect(s1ForwardPath).toEqual([])
         expect(s2ForwardPath).toEqual([])
 
@@ -125,6 +128,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
+        expect(nodeD.data.isLocked()).toBeFalsy()
         expect(s1ForwardPath).toEqual([nodeA, nodeC])
         expect(s2ForwardPath).toEqual([])
 
@@ -134,8 +138,19 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent2")).toBeTruthy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
+        expect(nodeD.data.isLocked()).toBeFalsy()
         expect(s1ForwardPath).toEqual([nodeA, nodeC])
         expect(s2ForwardPath).toEqual([nodeB])  // nodeC missing because locked by agent1
+
+        // moving agent1 to the last node locks it, and unlocks all prior nodes
+        // and allows agent2 to progress to NodeC
+        s1LockNext(nodeD)
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked("agent2")).toBeTruthy()
+        expect(nodeC.data.isLocked("agent2")).toBeTruthy()
+        expect(nodeD.data.isLocked("agent1")).toBeTruthy()
+        expect(s1ForwardPath).toEqual([nodeD])
+        expect(s2ForwardPath).toEqual([nodeB, nodeC])
     })
 
     test('directed', () => {
