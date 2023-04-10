@@ -795,3 +795,27 @@ describe('Components', () => {
         })
     })
 })
+
+describe('Exceptions', () => {
+    test('node no on path', () => {
+        const getLockForLink = (from: Lock, to: Lock) => {
+            return new LinkLock()
+        }
+        const nodeA = new Lock()
+        const nodeB = new Lock()
+        const nodeC = new Lock()
+        const nodeX = new Lock()
+
+        const makeLocker = makeMakeLocker<Lock>(
+            node => node,
+            (from, to) => new LinkLock())
+
+        const test1At = makeLocker([nodeA, nodeB, nodeC])(
+            "test1",
+            (nextNodes) => {}
+        )
+
+        expect(() => test1At.lockNext(nodeA)).not.toThrow()
+        expect(() => test1At.lockNext(nodeX)).toThrow()
+    })
+})
