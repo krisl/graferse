@@ -44,40 +44,44 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
     const lastCallCache = new Map<string,any>()
 
     type NextNodes = (nextNodes: T[]) => void
-    return (byWhom: string, path: T[], callback: NextNodes) => function lockNext(currentNode: T) {
-        lastCallCache.set(byWhom, () => lockNext(currentNode))
+    return (byWhom: string, path: T[], callback: NextNodes) => {
 
-        const currentIdx = path.findIndex(node => node === currentNode)
-        if (currentIdx === -1)
-            throw new Error("Wheres your node?")
+        const lockNext = (currentNode: T) => {
+            lastCallCache.set(byWhom, () => lockNext(currentNode))
 
-        const beforeCount = 0, afterCount = 1
-        const lastIdx = path.length -1
-        const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
-        const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
-        const whoCanMoveNow = new Set<string|undefined>()
-        // go through path from start to last node to be locked
-        for (let i = 0; i <= nextIdx; i++) {
-            // if its behind the prevIdx, unlock it
-            if (i < prevIdx)
-                whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
-            else
-            if (i === currentIdx)
-                getLock(path[i]).forceLock(byWhom)
-            else
-            if (i >= prevIdx)
-                if (!getLock(path[i]).requestLock(byWhom))
-                    // failed to obtain lock, dont try to get any more
-                    break;
-        }
+            const currentIdx = path.findIndex(node => node === currentNode)
+            if (currentIdx === -1)
+                throw new Error("Wheres your node?")
 
-        callback(path.filter(node => getLock(node).isLocked(byWhom)))
+            const beforeCount = 0, afterCount = 1
+            const lastIdx = path.length -1
+            const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
+            const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+            const whoCanMoveNow = new Set<string|undefined>()
+            // go through path from start to last node to be locked
+            for (let i = 0; i <= nextIdx; i++) {
+                // if its behind the prevIdx, unlock it
+                if (i < prevIdx)
+                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                else
+                    if (i === currentIdx)
+                        getLock(path[i]).forceLock(byWhom)
+                else
+                    if (i >= prevIdx)
+                        if (!getLock(path[i]).requestLock(byWhom))
+                            // failed to obtain lock, dont try to get any more
+                            break;
+            }
 
-        for (const waiter of whoCanMoveNow) {
-            if (waiter) {
-                lastCallCache.get(waiter)()
+            callback(path.filter(node => getLock(node).isLocked(byWhom)))
+
+            for (const waiter of whoCanMoveNow) {
+                if (waiter) {
+                    lastCallCache.get(waiter)()
+                }
             }
         }
+        return lockNext
     }
 }
 
