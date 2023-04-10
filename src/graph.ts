@@ -1,26 +1,20 @@
 class Lock {
-    lockedBy: string = ""
+    lockedBy: Set<string> = new Set()
 
-    constructor() {
-        this._unlock()
+    requestLock (byWhom: string) {
+        if (!this.isLocked())
+            this.forceLock(byWhom)
     }
 
-    lock (byWhom: string) {
-        this.lockedBy = byWhom
+    forceLock (byWhom: string) {
+        this.lockedBy.add(byWhom)
     }
 
     unlock (byWhom: string) {
-        if (byWhom !== this.lockedBy)
-            throw new Error(`tisk tisk ${byWhom} != ${this.lockedBy}`)
-
-        this._unlock()
+        this.lockedBy.delete(byWhom)
     }
 
-    private _unlock() {
-        this.lockedBy = ""
-    }
-
-    isLocked() { return !!this.lockedBy }
+    isLocked() { return this.lockedBy.size > 0 }
 }
 
 function makeMakeLocker<T> (getLock: (x: T) => Lock) {
@@ -31,24 +25,21 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
         if (currentIdx === -1)
             throw new Error("Wheres your node?")
 
-        // if there are nodes behind
-        if (currentIdx > 0) {
-            // TODO assumes lock length of 2
-            // if node before me is locked, unlock it
-            // else unlock this node because we must be at end of path
-            if (getLock(path[currentIdx -1]).isLocked())
-                getLock(path[currentIdx -1]).unlock(byWhom)
-            else {
-                getLock(path[currentIdx -0]).unlock(byWhom)
-                callback(path.filter(node => getLock(node).isLocked()))
-                return
-            }
-        }
-
-        getLock(path[currentIdx -0]).lock(byWhom)
-        // if we can lock the next node on our path
-        if (currentIdx +1 < path.length) {
-            getLock(path[currentIdx +1]).lock(byWhom)
+        const beforeCount = 0, afterCount = 1
+        const lastIdx = path.length -1
+        const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
+        const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+        // go through path from start to last node to be locked
+        for (let i = 0; i <= nextIdx; i++) {
+            // if its behind the prevIdx, unlock it
+            if (i < prevIdx)
+                getLock(path[i]).unlock(byWhom)
+            else
+            if (i === currentIdx)
+                getLock(path[i]).forceLock(byWhom)
+            else
+            if (i >= prevIdx)
+                getLock(path[i]).requestLock(byWhom)
         }
 
         callback(path.filter(node => getLock(node).isLocked()))

@@ -32,9 +32,5 @@ describe('ngraph', () => {
             console.log("====== step =======")
             lockNext(path[i])
         }
-
-        // another step to clear the locks
-        lockNext(path[path.length-1])
-        console.dir(path)
     })
 })
