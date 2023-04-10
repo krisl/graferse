@@ -17,19 +17,22 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
+        var forwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1", path, (nextNodes) => {})
+        const lockNext = makeLocker("agent1", path, (nextNodes) => { forwardPath = nextNodes })
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([])
 
         // progressing to the first node locks it, and the next
         lockNext(nodeA)
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([nodeA, nodeB])
 
         // progressing to the second node locks it, and the next
         // and unlocks nodes behind it
@@ -37,6 +40,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(forwardPath).toEqual([nodeB, nodeC])
 
         // progressing to the last node locks it
         // and unlocks nodes behind it
@@ -44,6 +48,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(forwardPath).toEqual([nodeC])
 
     })
 
@@ -60,8 +65,9 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
+        var forwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1", path, (nextNodes) => {})
+        const lockNext = makeLocker("agent1", path, (nextNodes) => { forwardPath = nextNodes })
 
         // manually lock all nodes
         nodeA.data.requestLock("agent1")
@@ -72,12 +78,14 @@ describe('ngraph', () => {
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeTruthy()
 
+        expect(forwardPath).toEqual([])
         // suddenly appearing at the last node locks it
         // and unlocks nodes behind it
         lockNext(nodeC)
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(forwardPath).toEqual([nodeC])
     })
 
     test('directed', () => {
