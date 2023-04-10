@@ -185,6 +185,20 @@ function makeMakeLocker<T> (
 
         return {
             lockNext,
+            clearAllLocks: () => {
+                console.log(`── clearAllLocks | ${byWhom} ──`);
+                const whoCanMoveNow = new Set<string|undefined>()
+                for (let i = 0; i < path.length; i++) {
+                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                    if (i < path.length -1) // expect the last node
+                        whoCanMoveNow.add(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                }
+                for (const waiter of whoCanMoveNow) {
+                    if (waiter) {
+                        lastCallCache.get(waiter)()
+                    }
+                }
+            },
         }
     }
 }

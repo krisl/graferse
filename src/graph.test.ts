@@ -57,6 +57,51 @@ describe('ngraph', () => {
 
     })
 
+    test('basic locking - clearAllLocks', () => {
+        const graph = ngraphCreateGraph()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+
+        graph.addLink('a', 'b', new Lock())
+        graph.addLink('b', 'c', new Lock())
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        const path = pathFinder.find('a', 'c').reverse()
+
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)(path)
+        var forwardPath: Array<Node<Lock>> = []
+        const locker = makeLocker("serena1", (nextNodes) => { forwardPath = nextNodes })
+
+        // all nodes are unlocked
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([])
+
+        // progressing to the first node locks it, and the next
+        locker.lockNext(nodeA)
+        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeB.data.isLocked()).toBeTruthy()
+        expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([nodeA, nodeB])
+
+        // progressing to the second node locks it, and the next
+        // and unlocks nodes behind it
+        locker.lockNext(nodeB)
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeTruthy()
+        expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(forwardPath).toEqual([nodeB, nodeC])
+
+        locker.clearAllLocks();
+
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeFalsy()
+    })
+
     test('unexpected queue jumping', () => {
         const graph = ngraphCreateGraph()
 
