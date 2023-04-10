@@ -95,6 +95,11 @@ describe('ngraph', () => {
         const nodeB = graph.addNode('b', new Lock())
         const nodeC = graph.addNode('c', new Lock())
 
+        // A
+        //  \
+        //   ----> C
+        //  /
+        // B
         graph.addLink('a', 'c')
         graph.addLink('b', 'c')
 
@@ -117,18 +122,18 @@ describe('ngraph', () => {
 
         // moving agent1 to the first node locks it, and the next
         s1LockNext(nodeA)
-        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeFalsy()
-        expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(nodeC.data.isLocked("agent1")).toBeTruthy()
         expect(s1ForwardPath).toEqual([nodeA, nodeC])
         expect(s2ForwardPath).toEqual([])
 
         // moving agent1 to its first node locks it
         // but the second is common to both paths, and already locked
         s2LockNext(nodeB)
-        expect(nodeA.data.isLocked()).toBeTruthy()
-        expect(nodeB.data.isLocked()).toBeTruthy()
-        expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(nodeA.data.isLocked("agent1")).toBeTruthy()
+        expect(nodeB.data.isLocked("agent2")).toBeTruthy()
+        expect(nodeC.data.isLocked("agent1")).toBeTruthy()
         expect(s1ForwardPath).toEqual([nodeA, nodeC])
         expect(s2ForwardPath).toEqual([nodeB])  // nodeC missing because locked by agent1
     })
