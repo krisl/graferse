@@ -18,8 +18,8 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         var forwardPath: Array<Node<Lock>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1", path, (nextNodes) => { forwardPath = nextNodes })
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)(path)
+        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -66,8 +66,8 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         var forwardPath: Array<Node<Lock>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1", path, (nextNodes) => { forwardPath = nextNodes })
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)(path)
+        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
 
         // manually lock all nodes
         nodeA.data.requestLock("agent1")
@@ -112,8 +112,8 @@ describe('ngraph', () => {
         var s1ForwardPath: Array<Node<Lock>> = []
         var s2ForwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const s1LockNext = makeLocker("agent1", s1Path, (nextNodes) => { s1ForwardPath = nextNodes })
-        const s2LockNext = makeLocker("agent2", s2Path, (nextNodes) => { s2ForwardPath = nextNodes })
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes })
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes })
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -168,7 +168,7 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1", path, (nextNodes) => {})
+        const lockNext = makeLocker(path)("agent1", (nextNodes) => {})
 
         for (var i = 0; i < path.length; i++) {
             lockNext(path[i])

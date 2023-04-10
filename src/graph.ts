@@ -44,7 +44,7 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
     const lastCallCache = new Map<string,any>()
 
     type NextNodes = (nextNodes: T[]) => void
-    return (byWhom: string, path: T[], callback: NextNodes) => {
+    return (path: T[]) => (byWhom: string, callback: NextNodes) => {
 
         const lockNext = (currentNode: T) => {
             lastCallCache.set(byWhom, () => lockNext(currentNode))
