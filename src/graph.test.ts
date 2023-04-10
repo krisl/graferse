@@ -26,12 +26,16 @@ describe('ngraph', () => {
 
         console.dir(path)
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
-        const lockNext = makeLocker("agent1")
+        const lockNext = makeLocker("agent1", path)
 
-        for (var i = 0; i < 4; i++) {
+        for (var i = 0; i < path.length; i++) {
             console.log("====== step =======")
-            lockNext(path)
+            lockNext(path[i])
             console.dir(path)
         }
+
+        // another step to clear the locks
+        lockNext(path[path.length-1])
+        console.dir(path)
     })
 })

@@ -25,21 +25,10 @@ class Lock {
 
 function makeMakeLocker<T> (getLock: (x: T) => Lock) {
 
-    return (byWhom: string) => (path: T[]) => {
-        if (path.length < 1)
-            throw new Error("thats not a path")
-
-        const currentIdx = path.findLastIndex(node => getLock(node).isLocked())
-        // if no nodes currently locked, lock the first two
-        if (currentIdx === -1) {
-            getLock(path[0]).lock(byWhom)
-            if (path.length > 1)
-                getLock(path[1]).lock(byWhom)
-
-            return
-        }
-
-        // else we are traversing the path
+    return (byWhom: string, path: T[]) => (currentNode: T) => {
+        const currentIdx = path.findIndex(node => node === currentNode)
+        if (currentIdx === -1)
+            throw new Error("Wheres your node?")
 
         // if there are nodes behind
         if (currentIdx > 0) {
@@ -48,10 +37,13 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
             // else unlock this node because we must be at end of path
             if (getLock(path[currentIdx -1]).isLocked())
                 getLock(path[currentIdx -1]).unlock(byWhom)
-            else
+            else {
                 getLock(path[currentIdx -0]).unlock(byWhom)
+                return
+            }
         }
 
+        getLock(path[currentIdx -0]).lock(byWhom)
         // if we can lock the next node on our path
         if (currentIdx +1 < path.length) {
             getLock(path[currentIdx +1]).lock(byWhom)
