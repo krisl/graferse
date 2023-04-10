@@ -760,6 +760,11 @@ describe('ngraph', () => {
 })
 
 describe('Components', () => {
+    beforeEach(() => {
+        // reset counts of calls using spyOn
+        jest.clearAllMocks()
+    })
+
     describe('Lock', () => {
         test('locking twice', () => {
             const logSpy = jest.spyOn(console, 'warn')
@@ -768,6 +773,19 @@ describe('Components', () => {
             expect(logSpy).not.toHaveBeenCalled()
             expect(lock.requestLock('test', 'def')).toBeTruthy()
             expect(logSpy).toHaveBeenCalled()
+        })
+    })
+
+    describe('LinkLock', () => {
+        test('locking when directed edge', () => {
+            const logSpyWarn = jest.spyOn(console, 'warn')
+            const logSpyError = jest.spyOn(console, 'warn')
+            const linkLock = new LinkLock() // by default is directed edge
+            expect(logSpyWarn).not.toHaveBeenCalled()
+            expect(logSpyError).not.toHaveBeenCalled()
+            expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
+            expect(logSpyWarn).toHaveBeenCalled()
+            expect(logSpyError).toHaveBeenCalled()
         })
     })
 })
