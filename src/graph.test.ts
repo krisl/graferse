@@ -759,13 +759,15 @@ describe('ngraph', () => {
     })
 })
 
-describe('Lock', () => {
-    test('locking twice', () => {
-        const logSpy = jest.spyOn(console, 'warn')
-        const lock = new Lock()
-        expect(lock.requestLock('test', 'abc')).toBeTruthy()
-        expect(logSpy).not.toHaveBeenCalled()
-        expect(lock.requestLock('test', 'def')).toBeTruthy()
-        expect(logSpy).toHaveBeenCalled()
+describe('Components', () => {
+    describe('Lock', () => {
+        test('locking twice', () => {
+            const logSpy = jest.spyOn(console, 'warn')
+            const lock = new Lock()
+            expect(lock.requestLock('test', 'abc')).toBeTruthy()
+            expect(logSpy).not.toHaveBeenCalled()
+            expect(lock.requestLock('test', 'def')).toBeTruthy()
+            expect(logSpy).toHaveBeenCalled()
+        })
     })
 })
