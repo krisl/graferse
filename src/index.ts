@@ -1,1 +1,1 @@
-console.log('w00t')
+export * from './graph.js'
