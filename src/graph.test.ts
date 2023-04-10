@@ -787,5 +787,11 @@ describe('Components', () => {
             expect(logSpyWarn).toHaveBeenCalled()
             expect(logSpyError).toHaveBeenCalled()
         })
+
+        test('same client, different directions throws', () => {
+            const linkLock = new LinkLock(true) // is bidirectional
+            expect(      linkLock.requestLock('test', 'up')).toEqual("FREE")
+            expect(() => linkLock.requestLock('test', 'down')).toThrow()
+        })
     })
 })
