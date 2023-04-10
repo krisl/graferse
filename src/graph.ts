@@ -182,7 +182,10 @@ function makeMakeLocker<T> (
             }
             console.log('└────\n')
         }
-        return lockNext
+
+        return {
+            lockNext,
+        }
     }
 }
 

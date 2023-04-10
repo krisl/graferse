@@ -24,7 +24,7 @@ describe('ngraph', () => {
 
         var forwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)(path)
-        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
+        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -72,7 +72,7 @@ describe('ngraph', () => {
 
         var forwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)(path)
-        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
+        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes }).lockNext
 
         // manually lock all nodes
         nodeA.data.requestLock("agent1")
@@ -119,8 +119,8 @@ describe('ngraph', () => {
         var s1ForwardPath: Array<Node<Lock>> = []
         var s2ForwardPath: Array<Node<Lock>> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes })
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes })
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -229,8 +229,8 @@ describe('ngraph', () => {
         )
         var s1NextPath: Array<Node<Lock>> = []
         var s2NextPath: Array<Node<Lock>> = []
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1NextPath = nextNodes })
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2NextPath = nextNodes })
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1NextPath = nextNodes }).lockNext
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2NextPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -391,7 +391,7 @@ describe('ngraph', () => {
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
         var s1ForwardPath: Array<Node<Lock>> = []
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes })
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -432,7 +432,7 @@ describe('ngraph', () => {
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'b').reverse()
         var s2ForwardPath: Array<Node<Lock>> = []
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes })
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
         s2LockNext(nodeD)
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
@@ -479,8 +479,8 @@ describe('ngraph', () => {
     //    const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
     //    var s1ForwardPath: Array<Node<Lock>> = []
     //    var s2ForwardPath: Array<Node<Lock>> = []
-    //    const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes })
-    //    const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes })
+    //    const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+    //    const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
 
     //    // all nodes are unlocked
     //    expect(nodeA.data.isLocked()).toBeFalsy()
@@ -534,7 +534,7 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
-        const lockNext = makeLocker(path)("agent1", (nextNodes) => {})
+        const lockNext = makeLocker(path)("agent1", (nextNodes) => {}).lockNext
 
         for (var i = 0; i < path.length; i++) {
             lockNext(path[i])
