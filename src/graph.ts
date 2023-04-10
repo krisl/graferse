@@ -25,7 +25,8 @@ class Lock {
 
 function makeMakeLocker<T> (getLock: (x: T) => Lock) {
 
-    return (byWhom: string, path: T[]) => (currentNode: T) => {
+    type NextNodes = (nextNodes: T[]) => void
+    return (byWhom: string, path: T[], callback: NextNodes) => (currentNode: T) => {
         const currentIdx = path.findIndex(node => node === currentNode)
         if (currentIdx === -1)
             throw new Error("Wheres your node?")
@@ -39,6 +40,7 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
                 getLock(path[currentIdx -1]).unlock(byWhom)
             else {
                 getLock(path[currentIdx -0]).unlock(byWhom)
+                callback(path.filter(node => getLock(node).isLocked()))
                 return
             }
         }
@@ -48,6 +50,8 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
         if (currentIdx +1 < path.length) {
             getLock(path[currentIdx +1]).lock(byWhom)
         }
+
+        callback(path.filter(node => getLock(node).isLocked()))
     }
 }
 
