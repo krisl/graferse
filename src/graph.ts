@@ -14,7 +14,11 @@ class Lock {
         this.lockedBy.delete(byWhom)
     }
 
-    isLocked() { return this.lockedBy.size > 0 }
+    isLocked(byWhom?: string) {
+        return byWhom
+            ? this.lockedBy.has(byWhom)
+            : this.lockedBy.size > 0
+    }
 }
 
 function makeMakeLocker<T> (getLock: (x: T) => Lock) {
@@ -42,7 +46,7 @@ function makeMakeLocker<T> (getLock: (x: T) => Lock) {
                 getLock(path[i]).requestLock(byWhom)
         }
 
-        callback(path.filter(node => getLock(node).isLocked()))
+        callback(path.filter(node => getLock(node).isLocked(byWhom)))
     }
 }
 

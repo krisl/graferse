@@ -88,6 +88,51 @@ describe('ngraph', () => {
         expect(forwardPath).toEqual([nodeC])
     })
 
+    test('two robot mutual exclusion', () => {
+        const graph = ngraphCreateGraph()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+
+        graph.addLink('a', 'c')
+        graph.addLink('b', 'c')
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        const s1Path = pathFinder.find('a', 'c').reverse()
+        const s2Path = pathFinder.find('b', 'c').reverse()
+
+        var s1ForwardPath: Array<Node<Lock>> = []
+        var s2ForwardPath: Array<Node<Lock>> = []
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data)
+        const s1LockNext = makeLocker("agent1", s1Path, (nextNodes) => { s1ForwardPath = nextNodes })
+        const s2LockNext = makeLocker("agent2", s2Path, (nextNodes) => { s2ForwardPath = nextNodes })
+
+        // all nodes are unlocked
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeFalsy()
+        expect(s1ForwardPath).toEqual([])
+        expect(s2ForwardPath).toEqual([])
+
+        // moving agent1 to the first node locks it, and the next
+        s1LockNext(nodeA)
+        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(s1ForwardPath).toEqual([nodeA, nodeC])
+        expect(s2ForwardPath).toEqual([])
+
+        // moving agent1 to its first node locks it
+        // but the second is common to both paths, and already locked
+        s2LockNext(nodeB)
+        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeB.data.isLocked()).toBeTruthy()
+        expect(nodeC.data.isLocked()).toBeTruthy()
+        expect(s1ForwardPath).toEqual([nodeA, nodeC])
+        expect(s2ForwardPath).toEqual([nodeB])  // nodeC missing because locked by agent1
+    })
+
     test('directed', () => {
         const graph = ngraphCreateGraph()
 
