@@ -103,7 +103,7 @@ function makeMakeLocker<T> (
         // as we can proceed some of the way in the same direction
         // TODO write as recursive function so that everything unlocks if any fail
         function tryLockAllBidirectionalEdges(i: number) {
-            console.log("trying to lock bidir edges from node %o", identity(path[i]))
+            console.log("  trying to lock bidir edges from node %o", identity(path[i]))
             // attempt to lock all bidirectional edges in the path
             for(let j = i; j < path.length -1; j++) { // WHY -1??
                 const linkLock = getLockForLink(path[j], path[j+1])
@@ -129,12 +129,12 @@ function makeMakeLocker<T> (
         }
 
         const lockNext = (currentNode: any) => {
-            console.log('locking current node %o for %s', currentNode, byWhom)
+            console.log(`┌─ Lock | ${byWhom} ${currentNode} ──`);
             lastCallCache.set(byWhom, () => lockNext(currentNode))
 
             const currentIdx = path.findIndex(node => identity(node) === currentNode)
             if (currentIdx === -1) {
-                console.error(`Couldnt find "${currentNode}" in ${JSON.stringify(path)}`)
+                console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path)}`)
                 throw new Error("Wheres your node?")
             }
 
@@ -180,6 +180,7 @@ function makeMakeLocker<T> (
                     lastCallCache.get(waiter)()
                 }
             }
+            console.log('└────\n')
         }
         return lockNext
     }
