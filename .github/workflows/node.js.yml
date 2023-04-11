@@ -28,7 +28,7 @@ jobs:
         cache: 'npm'
     - run: npm ci
     - run: npm run build --if-present
-    - run: npm run test:cover
+    - run: npm run test:cover -- --silent --verbose
     - name: Coveralls
       uses: coverallsapp/github-action@v2
       with:
