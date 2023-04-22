@@ -166,25 +166,34 @@ function makeMakeLocker<T> (
                     whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
                     console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
                     console.log({whoCanMoveNow})
-                    if (i > 0)
+                    if (i > 0) {
                         whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                } else
-                    if (i === currentIdx) {
-                        if (i > 0)
-                            whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                        getLock(path[i]).forceLock(byWhom)
-                        if (!tryLockAllBidirectionalEdges(i))
-                            break
                     }
-                else
-                    if (i >= prevIdx)
-                        if (tryLockAllBidirectionalEdges(i) && getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))
-                            ) {
-                            //console.log("what happens here")
-                        }
-                        else
-                            // failed to obtain lock, dont try to get any more
-                            break;
+                    continue
+                }
+
+                if (i === currentIdx) {
+                    if (i > 0) {
+                        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                    }
+
+                    getLock(path[i]).forceLock(byWhom)
+                    if (!tryLockAllBidirectionalEdges(i)) {
+                        break
+                    }
+
+                    continue
+                }
+
+                //if (i >= prevIdx) // must be true
+
+                // failed to obtain lock, dont try to get any more
+                if (!tryLockAllBidirectionalEdges(i)) {
+                    break
+                }
+                if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
+                    break;
+                }
             }
 
             callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
