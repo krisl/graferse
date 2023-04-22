@@ -26,6 +26,9 @@ class Lock {
         this.lockedBy.delete(byWhom)
 
         if (!this.isLocked()) {
+            // FIXME, dont dequeu them here
+            // just notifiy all waiters, or one by one until someone aquires the lock
+            // remove from waiting list only when they acquire the lock
             // dequeue a waiter
             const [waiter] = this.waiting
             this.waiting.delete(waiter)
@@ -101,31 +104,30 @@ function makeMakeLocker<T> (
         // till the last node in the path
         // returns false if first edge fails, otherwise returns true
         // as we can proceed some of the way in the same direction
-        // TODO write as recursive function so that everything unlocks if any fail
         function tryLockAllBidirectionalEdges(i: number) {
-            console.log("  trying to lock bidir edges from node %o", identity(path[i]))
-            // attempt to lock all bidirectional edges in the path
-            for(let j = i; j < path.length -1; j++) { // WHY -1??
-                const linkLock = getLockForLink(path[j], path[j+1])
-
-                if (!linkLock.isBidirectional)
-                    return "FREE"
-
-                const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(path[j]))
-                // console.log({linkLockResult})
-                // if we cant lock the subsequent edge then stop
-                if (linkLockResult !== "FREE") {
-                    // if we cant lock the first bidirectional edge, against flow then fail
-                    if (linkLockResult === "CON" && j === i) {
-                        // console.warn("Failed to lock first link")
-                        // unlock the first node, because its next bidir edge failed
-                        getLock(path[i]).unlock(byWhom)
-
-                    }
-                    return linkLockResult
-                }
+            if (i >= path.length -1) {
+                return true
             }
-            return "FREE"
+            //TODO will these locks and unlocks trigger waiters?
+            //may need a cangetlock? function.  prepare lock?
+            const linkLock = getLockForLink(path[i], path[i+1])
+            if (!linkLock.isBidirectional) {
+                return true
+            }
+
+            const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(path[i]))
+
+            // if it failed to lock because of opposing direction
+            if (linkLockResult === "CON") {
+                return false
+            }
+
+            if (!tryLockAllBidirectionalEdges(i +1)) {
+                linkLock.unlock(byWhom)
+                return false
+            }
+
+            return true
         }
 
         const lockNext = (currentNode: any) => {
@@ -134,7 +136,9 @@ function makeMakeLocker<T> (
 
             const currentIdx = path.findIndex(node => identity(node) === currentNode)
             if (currentIdx === -1) {
+                console.error(`  You're claiming to be at a node not on your path`)
                 console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
+                //FIXME unlock all nodes on the path now
                 throw new Error("Wheres your node?")
             }
 
@@ -144,6 +148,14 @@ function makeMakeLocker<T> (
             const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string|undefined>()
             // go through path from start to last node to be locked
+            //for (let i = 0; i < prevIdx; i++) {
+            //    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+            //    if (i > 0)
+            //        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+            //}
+            //for (let i = prevIdx; i <= nextIdx; i++) {
+            //}
+
             for (let i = 0; i <= nextIdx; i++) {
                 // if its behind the prevIdx, unlock it
                 if (i < prevIdx) {
@@ -152,6 +164,8 @@ function makeMakeLocker<T> (
                     // reports _any_ position in the graph not just on this path!
                     // at least release all previous links in path
                     whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                    console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
+                    console.log({whoCanMoveNow})
                     if (i > 0)
                         whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
                 } else
@@ -159,13 +173,13 @@ function makeMakeLocker<T> (
                         if (i > 0)
                             whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
                         getLock(path[i]).forceLock(byWhom)
-                        if (tryLockAllBidirectionalEdges(i) === "CON")
+                        if (!tryLockAllBidirectionalEdges(i))
                             break
                     }
                 else
                     if (i >= prevIdx)
-                        if (getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))
-                            && tryLockAllBidirectionalEdges(i) !== "CON") {
+                        if (tryLockAllBidirectionalEdges(i) && getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))
+                            ) {
                             //console.log("what happens here")
                         }
                         else
