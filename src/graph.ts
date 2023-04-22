@@ -107,29 +107,33 @@ function makeMakeLocker<T> (
         // till the last node in the path
         // returns false if first edge fails, otherwise returns true
         // as we can proceed some of the way in the same direction
-        function tryLockAllBidirectionalEdges(i: number) {
-            if (i >= path.length -1) {
+        function tryLockAllBidirectionalEdges(subpath: T[]) {
+            if (subpath.length < 2) {
                 return true
             }
             //TODO will these locks and unlocks trigger waiters?
             //may need a cangetlock? function.  prepare lock?
-            const linkLock = getLockForLink(path[i], path[i+1])
+            const linkLock = getLockForLink(subpath[0], subpath[1])
+            const desc = `from ${identity(subpath[0])} to ${identity(subpath[1])}`
             if (!linkLock.isBidirectional) {
+                console.debug(`  ok - ${desc} not bidirectional`)
                 return true
             }
 
-            const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(path[i]))
+            const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(subpath[0]))
 
             // if it failed to lock because of opposing direction
             if (linkLockResult === "CON") {
+                console.debug(`  fail - ${desc} locked against us`)
                 return false
             }
 
-            if (!tryLockAllBidirectionalEdges(i +1)) {
+            if (!tryLockAllBidirectionalEdges(subpath.slice(1))) {
                 linkLock.unlock(byWhom)
                 return false
             }
 
+            console.debug(`  ok - ${desc} obtained`)
             return true
         }
 
@@ -181,7 +185,9 @@ function makeMakeLocker<T> (
                     }
 
                     getLock(path[i]).forceLock(byWhom)
-                    if (!tryLockAllBidirectionalEdges(i)) {
+                    console.log("  trying to lock bidir edge from current node %o", identity(path[i]))
+                    if (!tryLockAllBidirectionalEdges(path.slice(i, i+2))) {
+                        // failed to obtain lock, dont try to get any more
                         break
                     }
 
@@ -191,7 +197,8 @@ function makeMakeLocker<T> (
                 //if (i >= prevIdx) // must be true
 
                 // failed to obtain lock, dont try to get any more
-                if (!tryLockAllBidirectionalEdges(i)) {
+                console.log("  trying to lock bidir edges from next node %o", identity(path[i]))
+                if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                     break
                 }
                 if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
