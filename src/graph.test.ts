@@ -775,6 +775,106 @@ describe('ngraph', () => {
         expect(s2ForwardPath).toEqual([nodeD])
         expect(s3ForwardPath).toEqual([nodeB, nodeC])
     })
+    test('two robots opposing directions never adject nodes', () => {
+        //
+        //               Y
+        //               ^
+        //                \
+        //                 v
+        // A ----> B ----> C <---> D <---> E <---- F <---- G
+        //                                 ^
+        //                                  \
+        //                                   v
+        //                                   Z
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+        const nodeD = graph.addNode('d', new Lock())
+        const nodeE = graph.addNode('e', new Lock())
+        const nodeF = graph.addNode('f', new Lock())
+        const nodeG = graph.addNode('g', new Lock())
+        const nodeY = graph.addNode('y', new Lock())
+        const nodeZ = graph.addNode('z', new Lock())
+
+        const lockCD = new LinkLock(true)
+        const lockDE = new LinkLock(true)
+        const lockCY = new LinkLock(true)
+        const lockEZ = new LinkLock(true)
+
+        function addBiLink(a: string, b: string, lock: LinkLock) {
+            return [
+                graph.addLink(a, b, lock),
+                graph.addLink(b, a, lock),
+            ]
+        }
+
+        graph.addLink('a', 'b', new LinkLock()),
+        graph.addLink('b', 'c', new LinkLock()),
+        addBiLink('c', 'd', lockCD)
+        addBiLink('d', 'e', lockDE)
+        graph.addLink('g', 'f', new LinkLock()),
+        graph.addLink('f', 'e', new LinkLock()),
+        addBiLink('c', 'y', lockCY)
+        addBiLink('e', 'z', lockEZ)
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        // TODO make a fully bidir test
+        // robot does not entire bidir path at all unless its path is clear to end
+        //
+        //               Y
+        //               ^
+        //                \
+        // A <---> B <---> C <---> D <---> E <---> F <----> G
+        //                                  \
+        //                                   v
+        //                                   Z
+        const path1 = pathFinder.find('a', 'z').reverse()
+        const path2 = pathFinder.find('g', 'y').reverse()
+
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
+        var nextNodes1: Array<Node<Lock>> = []
+        var nextNodes2: Array<Node<Lock>> = []
+        const agent1at = makeLocker(path1)("agent1", (nn) => { nextNodes1 = nn }).lockNext
+        const agent2at = makeLocker(path2)("agent2", (nn) => { nextNodes2 = nn }).lockNext
+
+        expect(nextNodes1).toEqual([])
+        expect(nextNodes2).toEqual([])
+
+        agent1at('a')
+        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes2).toEqual([])
+
+        agent2at('g')
+        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes2).toEqual([nodeG, nodeF])
+
+        agent1at('b')
+        expect(nextNodes1).toEqual([nodeB, nodeC]) // now we block the way to Y for agent2
+        expect(nextNodes2).toEqual([nodeG, nodeF])
+
+        agent2at('f')
+        expect(nextNodes1).toEqual([nodeB, nodeC])
+        expect(nextNodes2).toEqual([nodeF]) // cant get E because agent1 has clear path to Z
+
+        agent1at('c')
+        expect(nextNodes1).toEqual([nodeC, nodeD])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('d')
+        expect(nextNodes1).toEqual([nodeD, nodeE])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('e')
+        expect(nextNodes1).toEqual([nodeE, nodeZ])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('z')
+        expect(nextNodes1).toEqual([nodeZ])
+        expect(nextNodes2).toEqual([nodeF, nodeE]) // now we can move to E
+    })
+    // TODO add test that shows we are waiting on distant edge
     //test('two robots opposing directions in a narrow corridor', () => {
     //    const graph = ngraphCreateGraph()
 
