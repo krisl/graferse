@@ -749,11 +749,11 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
         const lockNext = makeLocker(path)("agent1", (nextNodes) => {}).lockNext
 
         for (var i = 0; i < path.length; i++) {
-            lockNext(path[i])
+            lockNext(path[i].id)
         }
     })
 })
