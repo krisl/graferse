@@ -9,7 +9,7 @@ class Lock {
         }
 
         if (this.isLocked(byWhom)) {
-            console.warn("Why are you locking your own node?", {byWhom, what})
+            // console.warn("Why are you locking your own node?", {byWhom, what})
             return true
         }
 
