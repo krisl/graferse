@@ -69,13 +69,16 @@ class LinkLock {
             return "FREE"
         }
 
+        // if its locked by anyone else, in the direction we are going
+        if (this._lock.isLocked() && this._direction === direction) {
+            this._lock.forceLock(byWhom) // add ourselves to the list
+            return "PRO"
+        }
+
         if (this._lock.requestLock(byWhom, "link from " + JSON.stringify(direction))) {
             this._direction = direction
             return "FREE"
         }
-
-        if (this._direction === direction)
-            return "PRO"
 
         return "CON"
     }

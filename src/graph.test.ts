@@ -569,7 +569,7 @@ describe('ngraph', () => {
         expect(linkEF.data.isLocked("agent1")).toBeFalsy()
         expect(linkEF.data.isLocked("agent2")).toBeTruthy()
         expect(linkFG.data.isLocked("agent1")).toBeTruthy()
-        expect(linkFG.data.isLocked("agent2")).toBeFalsy()
+        expect(linkFG.data.isLocked("agent2")).toBeTruthy()
         expect(linkGH.data.isLocked()).toBeFalsy() // not bidirectional
         expect(linkGI.data.isLocked()).toBeFalsy() // not bidirectional
     })
