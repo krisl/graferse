@@ -1,8 +1,19 @@
+declare global {
+    interface Set<T> {
+        addAll(s: Set<T> | undefined): void
+    }
+}
+
+Set.prototype.addAll = function(s) {
+    s && s.forEach(item => this.add(item))
+}
+
 class Lock {
     lockedBy: Set<string> = new Set()
     waiting: Set<string> = new Set()
 
     requestLock (byWhom: string, what: string) {
+        this.waiting.delete(byWhom)
         if (!this.isLocked()) {
             this.forceLock(byWhom)
             return true
@@ -26,10 +37,11 @@ class Lock {
         this.lockedBy.delete(byWhom)
 
         if (!this.isLocked()) {
-            // dequeue a waiter
-            const [waiter] = this.waiting
-            this.waiting.delete(waiter)
-            return waiter
+            // no guarentee that this resource is obtainable by any of the waiters
+            // so return all and let them obtain new waits on any new resources
+            const waiters = new Set(this.waiting)
+            this.waiting.clear()
+            return waiters
         }
     }
 
@@ -66,13 +78,16 @@ class LinkLock {
             return "FREE"
         }
 
+        // if its locked by anyone else, in the direction we are going
+        if (this._lock.isLocked() && this._direction === direction) {
+            this._lock.forceLock(byWhom) // add ourselves to the list
+            return "PRO"
+        }
+
         if (this._lock.requestLock(byWhom, "link from " + JSON.stringify(direction))) {
             this._direction = direction
             return "FREE"
         }
-
-        if (this._direction === direction)
-            return "PRO"
 
         return "CON"
     }
@@ -101,31 +116,34 @@ function makeMakeLocker<T> (
         // till the last node in the path
         // returns false if first edge fails, otherwise returns true
         // as we can proceed some of the way in the same direction
-        // TODO write as recursive function so that everything unlocks if any fail
-        function tryLockAllBidirectionalEdges(i: number) {
-            console.log("  trying to lock bidir edges from node %o", identity(path[i]))
-            // attempt to lock all bidirectional edges in the path
-            for(let j = i; j < path.length -1; j++) { // WHY -1??
-                const linkLock = getLockForLink(path[j], path[j+1])
-
-                if (!linkLock.isBidirectional)
-                    return "FREE"
-
-                const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(path[j]))
-                // console.log({linkLockResult})
-                // if we cant lock the subsequent edge then stop
-                if (linkLockResult !== "FREE") {
-                    // if we cant lock the first bidirectional edge, against flow then fail
-                    if (linkLockResult === "CON" && j === i) {
-                        // console.warn("Failed to lock first link")
-                        // unlock the first node, because its next bidir edge failed
-                        getLock(path[i]).unlock(byWhom)
-
-                    }
-                    return linkLockResult
-                }
+        function tryLockAllBidirectionalEdges(subpath: T[]) {
+            if (subpath.length < 2) {
+                return true
             }
-            return "FREE"
+            //TODO will these locks and unlocks trigger waiters?
+            //may need a cangetlock? function.  prepare lock?
+            const linkLock = getLockForLink(subpath[0], subpath[1])
+            const desc = `from ${identity(subpath[0])} to ${identity(subpath[1])}`
+            if (!linkLock.isBidirectional) {
+                console.debug(`  ok - ${desc} not bidirectional`)
+                return true
+            }
+
+            const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(subpath[0]))
+
+            // if it failed to lock because of opposing direction
+            if (linkLockResult === "CON") {
+                console.debug(`  fail - ${desc} locked against us`)
+                return false
+            }
+
+            if (!tryLockAllBidirectionalEdges(subpath.slice(1))) {
+                linkLock.unlock(byWhom)
+                return false
+            }
+
+            console.debug(`  ok - ${desc} obtained`)
+            return true
         }
 
         const lockNext = (currentNode: any) => {
@@ -134,7 +152,9 @@ function makeMakeLocker<T> (
 
             const currentIdx = path.findIndex(node => identity(node) === currentNode)
             if (currentIdx === -1) {
+                console.error(`  You're claiming to be at a node not on your path`)
                 console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
+                //FIXME unlock all nodes on the path now
                 throw new Error("Wheres your node?")
             }
 
@@ -144,6 +164,14 @@ function makeMakeLocker<T> (
             const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string|undefined>()
             // go through path from start to last node to be locked
+            //for (let i = 0; i < prevIdx; i++) {
+            //    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+            //    if (i > 0)
+            //        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+            //}
+            //for (let i = prevIdx; i <= nextIdx; i++) {
+            //}
+
             for (let i = 0; i <= nextIdx; i++) {
                 // if its behind the prevIdx, unlock it
                 if (i < prevIdx) {
@@ -151,28 +179,45 @@ function makeMakeLocker<T> (
                     // actually these are going to need to unlock when a robot
                     // reports _any_ position in the graph not just on this path!
                     // at least release all previous links in path
-                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
-                    if (i > 0)
-                        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                } else
-                    if (i === currentIdx) {
-                        if (i > 0)
-                            whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                        getLock(path[i]).forceLock(byWhom)
-                        if (tryLockAllBidirectionalEdges(i) === "CON")
-                            break
+                    whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
+                    console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
+                    if (i > 0) {
+                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
                     }
-                else
-                    if (i >= prevIdx)
-                        if (getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))
-                            && tryLockAllBidirectionalEdges(i) !== "CON") {
-                            //console.log("what happens here")
-                        }
-                        else
-                            // failed to obtain lock, dont try to get any more
-                            break;
+                    continue
+                }
+
+                if (i === currentIdx) {
+                    if (i > 0) {
+                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                    }
+
+                    getLock(path[i]).forceLock(byWhom)
+                    console.log("  trying to lock bidir edge from current node %o", identity(path[i]))
+                    if (!tryLockAllBidirectionalEdges(path.slice(i, i+2))) {
+                        // failed to obtain lock, dont try to get any more
+                        break
+                    }
+
+                    continue
+                }
+
+                //if (i >= prevIdx) // must be true
+
+                // failed to obtain lock, dont try to get any more
+                if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
+                    break;
+                }
+                console.log("  trying to lock bidir edges from next node %o", identity(path[i]))
+                if (!tryLockAllBidirectionalEdges(path.slice(i))) {
+                    // unlock previously obtained node lock
+                    getLock(path[i]).unlock(byWhom)
+                    break
+                }
             }
 
+            console.log({whoCanMoveNow})
+            // FIXME dont callback  with same values as last time? or up to clients to handle spurious notifications?
             callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
 
             for (const waiter of whoCanMoveNow) {
@@ -189,9 +234,9 @@ function makeMakeLocker<T> (
                 console.log(`── clearAllLocks | ${byWhom} ──`);
                 const whoCanMoveNow = new Set<string|undefined>()
                 for (let i = 0; i < path.length; i++) {
-                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                    whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     if (i < path.length -1) // expect the last node
-                        whoCanMoveNow.add(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                        whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
                 }
                 for (const waiter of whoCanMoveNow) {
                     if (waiter) {

@@ -532,8 +532,9 @@ describe('ngraph', () => {
         s1LockNext('e')
         expect(s1NextPaths.at(-1)).toEqual([nodeE, nodeF])
         expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC])
+        expect(s2NextPaths).toEqual([[nodeB], [nodeB, nodeC]])
         expect(s1calls).toEqual(4)
-        //expect(s2calls).toEqual(2)
+        expect(s2calls).toEqual(2)
 
         // s1 moves to its next node again
         s1LockNext('f')
@@ -569,7 +570,7 @@ describe('ngraph', () => {
         expect(linkEF.data.isLocked("agent1")).toBeFalsy()
         expect(linkEF.data.isLocked("agent2")).toBeTruthy()
         expect(linkFG.data.isLocked("agent1")).toBeTruthy()
-        expect(linkFG.data.isLocked("agent2")).toBeFalsy()
+        expect(linkFG.data.isLocked("agent2")).toBeTruthy()
         expect(linkGH.data.isLocked()).toBeFalsy() // not bidirectional
         expect(linkGI.data.isLocked()).toBeFalsy() // not bidirectional
     })
@@ -629,6 +630,7 @@ describe('ngraph', () => {
 
         s1LockNext('a')
         // its current and next nodes are locked
+        expect(s1ForwardPath).toEqual([nodeA, nodeB])
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeFalsy()
@@ -651,6 +653,7 @@ describe('ngraph', () => {
         s2LockNext('d')
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
+        expect(s2ForwardPath).toEqual([nodeD])
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent2")).toBeFalsy()
@@ -660,16 +663,319 @@ describe('ngraph', () => {
 
         expect(linkAB.data.isLocked("agent1")).toBeTruthy()
         expect(linkBC.data.isLocked("agent1")).toBeTruthy()
-        expect(linkCD.data.isLocked("agent2")).toBeTruthy()
-        expect(linkDC.data.isLocked("agent2")).toBeTruthy()
+        //expect(linkCD.data.isLocked("agent2")).toBeTruthy()
+        //expect(linkDC.data.isLocked("agent2")).toBeTruthy()
         expect(linkCB.data.isLocked("agent1")).toBeTruthy()
         expect(linkBA.data.isLocked("agent1")).toBeTruthy()
         expect(linkCE.data.isLocked()).toBeFalsy()
 
         //console.dir({s2Path}, {depth: null})
+        // lets continue down the hallway
+        s1LockNext('b')
+        expect(s1ForwardPath).toEqual([nodeB, nodeC])
+        expect(s2ForwardPath).toEqual([nodeD])
 
+        s1LockNext('c')
+        expect(s1ForwardPath).toEqual([nodeC, nodeE])
+        expect(s2ForwardPath).toEqual([nodeD])
+
+        s1LockNext('e')
+        expect(s1ForwardPath).toEqual([nodeE])
+        expect(s2ForwardPath).toEqual([nodeD, nodeC])
     })
 
+    test('three agents bidirectional corridor with early exit', () => {
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+        const nodeD = graph.addNode('d', new Lock())
+        const nodeE = graph.addNode('e', new Lock())
+        const nodeF = graph.addNode('f', new Lock())
+
+        //                      F
+        //                     ^
+        //                    /
+        // A <----> B <----> C <---- D
+        //                    \
+        //                     v
+        //                     E
+
+        const lockAB = new LinkLock(true)
+        const lockBC = new LinkLock(true)
+
+        const linkAB = graph.addLink('a', 'b', lockAB)
+        const linkBC = graph.addLink('b', 'c', lockBC)
+        const linkCB = graph.addLink('c', 'b', lockBC)
+        const linkBA = graph.addLink('b', 'a', lockAB)
+
+        const linkCD = graph.addLink('d', 'c', new LinkLock())
+        const linkCE = graph.addLink('c', 'e', new LinkLock())
+        const linkCF = graph.addLink('c', 'f', new LinkLock())
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        const s1Path = pathFinder.find('a', 'e').reverse()
+
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
+        var s1ForwardPath: Array<Node<Lock>> = []
+        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+
+        expect(s1ForwardPath).toEqual([])
+
+        s1LockNext('a')
+        // its current and next nodes are locked
+        expect(s1ForwardPath).toEqual([nodeA, nodeB])
+
+        // an opposing robot appears
+        const s2Path = pathFinder.find('d', 'a').reverse()
+        var s2ForwardPath: Array<Node<Lock>> = []
+        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
+        console.log({s2Path})
+        s2LockNext('d')
+
+        // but fails to get a lock on the c -> d link because its locked in the opposite direction
+        expect(s2ForwardPath).toEqual([nodeD])
+
+        s1LockNext('b')
+        expect(s1ForwardPath).toEqual([nodeB, nodeC])
+        expect(s2ForwardPath).toEqual([nodeD])
+
+        const s3Path = pathFinder.find('a', 'f').reverse()
+        var s3ForwardPath: Array<Node<Lock>> = []
+        const s3LockNext = makeLocker(s3Path)("agent3", (nextNodes) => { s3ForwardPath = nextNodes }).lockNext
+
+        console.warn('s3 stepping to node a')
+        s3LockNext('a')
+        expect(s1ForwardPath).toEqual([nodeB, nodeC])
+        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s3ForwardPath).toEqual([nodeA])
+
+        console.warn('s1 stepping to node c')
+        s1LockNext('c')
+        expect(s1ForwardPath).toEqual([nodeC, nodeE])
+        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s3ForwardPath).toEqual([nodeA, nodeB])
+
+        console.warn('s3 stepping to node b')
+        s3LockNext('b')
+        expect(s1ForwardPath).toEqual([nodeC, nodeE])
+        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s3ForwardPath).toEqual([nodeB])
+
+        //                      F
+        //                     ^
+        //                    /
+        // A <----> B <----> C <---- D
+        //                    \
+        //                     v
+        //                     E
+        console.warn('s1 stepping to node e')
+        s1LockNext('e')
+        expect(s1ForwardPath).toEqual([nodeE])
+        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s3ForwardPath).toEqual([nodeB, nodeC])
+    })
+    test('two robots opposing directions never adject nodes', () => {
+        //
+        //               Y
+        //               ^
+        //                \
+        //                 v
+        // A ----> B ----> C <---> D <---> E <---- F <---- G
+        //                                 ^
+        //                                  \
+        //                                   v
+        //                                   Z
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+        const nodeD = graph.addNode('d', new Lock())
+        const nodeE = graph.addNode('e', new Lock())
+        const nodeF = graph.addNode('f', new Lock())
+        const nodeG = graph.addNode('g', new Lock())
+        const nodeY = graph.addNode('y', new Lock())
+        const nodeZ = graph.addNode('z', new Lock())
+
+        const lockCD = new LinkLock(true)
+        const lockDE = new LinkLock(true)
+        const lockCY = new LinkLock(true)
+        const lockEZ = new LinkLock(true)
+
+        function addBiLink(a: string, b: string, lock: LinkLock) {
+            return [
+                graph.addLink(a, b, lock),
+                graph.addLink(b, a, lock),
+            ]
+        }
+
+        graph.addLink('a', 'b', new LinkLock()),
+        graph.addLink('b', 'c', new LinkLock()),
+        addBiLink('c', 'd', lockCD)
+        addBiLink('d', 'e', lockDE)
+        graph.addLink('g', 'f', new LinkLock()),
+        graph.addLink('f', 'e', new LinkLock()),
+        addBiLink('c', 'y', lockCY)
+        addBiLink('e', 'z', lockEZ)
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        // TODO make a fully bidir test
+        // robot does not entire bidir path at all unless its path is clear to end
+        //
+        //               Y
+        //               ^
+        //                \
+        // A <---> B <---> C <---> D <---> E <---> F <----> G
+        //                                  \
+        //                                   v
+        //                                   Z
+        const path1 = pathFinder.find('a', 'z').reverse()
+        const path2 = pathFinder.find('g', 'y').reverse()
+
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
+        var nextNodes1: Array<Node<Lock>> = []
+        var nextNodes2: Array<Node<Lock>> = []
+        const agent1at = makeLocker(path1)("agent1", (nn) => { nextNodes1 = nn }).lockNext
+        const agent2at = makeLocker(path2)("agent2", (nn) => { nextNodes2 = nn }).lockNext
+
+        expect(nextNodes1).toEqual([])
+        expect(nextNodes2).toEqual([])
+
+        agent1at('a')
+        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes2).toEqual([])
+
+        agent2at('g')
+        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes2).toEqual([nodeG, nodeF])
+
+        agent1at('b')
+        expect(nextNodes1).toEqual([nodeB, nodeC]) // now we block the way to Y for agent2
+        expect(nextNodes2).toEqual([nodeG, nodeF])
+
+        agent2at('f')
+        expect(nextNodes1).toEqual([nodeB, nodeC])
+        expect(nextNodes2).toEqual([nodeF]) // cant get E because agent1 has clear path to Z
+
+        agent1at('c')
+        expect(nextNodes1).toEqual([nodeC, nodeD])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('d')
+        expect(nextNodes1).toEqual([nodeD, nodeE])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('e')
+        expect(nextNodes1).toEqual([nodeE, nodeZ])
+        expect(nextNodes2).toEqual([nodeF])
+
+        agent1at('z')
+        expect(nextNodes1).toEqual([nodeZ])
+        expect(nextNodes2).toEqual([nodeF, nodeE]) // now we can move to E
+    })
+    test('two robots opposing directions never adject nodes - part2', () => {
+        //
+        //               Y
+        //               ^
+        //                \
+        //                 v
+        // A ----> B ----> C <---> D <---> E <----> F <---- G
+        //                                 ^
+        //                                  \
+        //                                   v
+        //                                   Z
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+
+        const nodeA = graph.addNode('a', new Lock())
+        const nodeB = graph.addNode('b', new Lock())
+        const nodeC = graph.addNode('c', new Lock())
+        const nodeD = graph.addNode('d', new Lock())
+        const nodeE = graph.addNode('e', new Lock())
+        const nodeF = graph.addNode('f', new Lock())
+        const nodeG = graph.addNode('g', new Lock())
+        const nodeY = graph.addNode('y', new Lock())
+        const nodeZ = graph.addNode('z', new Lock())
+
+        const lockCD = new LinkLock(true)
+        const lockDE = new LinkLock(true)
+        const lockEF = new LinkLock(true)
+        const lockCY = new LinkLock(true)
+        const lockEZ = new LinkLock(true)
+
+        function addBiLink(a: string, b: string, lock: LinkLock) {
+            return [
+                graph.addLink(a, b, lock),
+                graph.addLink(b, a, lock),
+            ]
+        }
+
+        graph.addLink('a', 'b', new LinkLock()),
+        graph.addLink('b', 'c', new LinkLock()),
+        addBiLink('c', 'd', lockCD)
+        addBiLink('d', 'e', lockDE)
+        graph.addLink('g', 'f', new LinkLock()),
+        addBiLink('f', 'e', lockEF),
+        addBiLink('c', 'y', lockCY)
+        addBiLink('e', 'z', lockEZ)
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        // TODO make a fully bidir test
+        // robot does not entire bidir path at all unless its path is clear to end
+        //
+        //               Y
+        //               ^
+        //                \
+        // A <---> B <---> C <---> D <---> E <---> F <----> G
+        //                                  \
+        //                                   v
+        //                                   Z
+        const path1 = pathFinder.find('a', 'z').reverse()
+        const path2 = pathFinder.find('g', 'y').reverse()
+
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
+        var nextNodes1: Array<Node<Lock>> = []
+        var nextNodes2: Array<Node<Lock>> = []
+        const agent1at = makeLocker(path1)("agent1", (nn) => { nextNodes1 = nn }).lockNext
+        const agent2at = makeLocker(path2)("agent2", (nn) => { nextNodes2 = nn }).lockNext
+
+        expect(nextNodes1).toEqual([])
+        expect(nextNodes2).toEqual([])
+
+        agent1at('a')
+        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes2).toEqual([])
+
+        agent1at('b')
+        expect(nextNodes1).toEqual([nodeB, nodeC]) // now we block the way to Y for agent2
+        expect(nextNodes2).toEqual([])
+
+        agent2at('g')
+        expect(nextNodes1).toEqual([nodeB, nodeC])
+        expect(nextNodes2).toEqual([nodeG])
+
+        agent1at('c')
+        expect(nextNodes1).toEqual([nodeC, nodeD])
+        expect(nextNodes2).toEqual([nodeG])
+
+        agent1at('d')
+        expect(nextNodes1).toEqual([nodeD, nodeE])
+        expect(nextNodes2).toEqual([nodeG])
+
+        agent1at('e')
+        expect(nextNodes1).toEqual([nodeE, nodeZ])
+        expect(nextNodes2).toEqual([nodeG, nodeF])  // seems a little early to obtain nodeF
+
+        agent2at('f')
+        expect(nextNodes1).toEqual([nodeE, nodeZ])
+        expect(nextNodes2).toEqual([nodeF]) // cant get E because agent1 is tehre
+
+        agent1at('z')
+        expect(nextNodes1).toEqual([nodeZ])
+        expect(nextNodes2).toEqual([nodeF, nodeE]) // now we can move to E
+    })
+    // TODO add test that shows we are waiting on distant edge
     //test('two robots opposing directions in a narrow corridor', () => {
     //    const graph = ngraphCreateGraph()
 
@@ -683,9 +989,9 @@ describe('ngraph', () => {
     //    //   ----> C ----> D
     //    //  /
     //    // B
-    //    graph.addLink('a', 'c', new Lock())
-    //    graph.addLink('b', 'c', new Lock())
-    //    graph.addLink('c', 'd', new Lock())
+    //    graph.addLink('a', 'c', new LinkLock())
+    //    graph.addLink('b', 'c', new LinkLock())
+    //    graph.addLink('c', 'd', new LinkLock())
 
     //    const pathFinder = ngraphPath.aStar(graph, { oriented: true })
     //    const s1Path = pathFinder.find('a', 'd')
