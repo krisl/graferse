@@ -606,7 +606,7 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'e').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
         var s1ForwardPath: Array<Node<Lock>> = []
         const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
 
@@ -628,7 +628,7 @@ describe('ngraph', () => {
 
         expect(s1ForwardPath).toEqual([])
 
-        s1LockNext(nodeA)
+        s1LockNext('a')
         // its current and next nodes are locked
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
@@ -645,12 +645,11 @@ describe('ngraph', () => {
         expect(linkBA.data.isLocked()).toBeTruthy()
         expect(linkCE.data.isLocked()).toBeFalsy()
 
-        console.log("=========================================================")
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'b').reverse()
         var s2ForwardPath: Array<Node<Lock>> = []
         const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
-        s2LockNext(nodeD)
+        s2LockNext('d')
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
