@@ -166,7 +166,7 @@ function makeMakeLocker<T> (
                     if (i >= prevIdx)
                         if (getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))
                             && tryLockAllBidirectionalEdges(i) !== "CON") {
-                            console.log("what happens here")
+                            //console.log("what happens here")
                         }
                         else
                             // failed to obtain lock, dont try to get any more
