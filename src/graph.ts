@@ -205,12 +205,14 @@ function makeMakeLocker<T> (
                 //if (i >= prevIdx) // must be true
 
                 // failed to obtain lock, dont try to get any more
-                console.log("  trying to lock bidir edges from next node %o", identity(path[i]))
-                if (!tryLockAllBidirectionalEdges(path.slice(i))) {
-                    break
-                }
                 if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
                     break;
+                }
+                console.log("  trying to lock bidir edges from next node %o", identity(path[i]))
+                if (!tryLockAllBidirectionalEdges(path.slice(i))) {
+                    // unlock previously obtained node lock
+                    getLock(path[i]).unlock(byWhom)
+                    break
                 }
             }
 
