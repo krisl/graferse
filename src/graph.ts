@@ -216,6 +216,8 @@ function makeMakeLocker<T> (
                 }
             }
 
+            console.log({whoCanMoveNow})
+            // FIXME dont callback  with same values as last time? or up to clients to handle spurious notifications?
             callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
 
             for (const waiter of whoCanMoveNow) {
