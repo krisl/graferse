@@ -270,7 +270,7 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         var forwardPath: Array<Node<Lock>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)(path)
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)(path)
         const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes }).lockNext
 
         // manually lock all nodes
@@ -285,7 +285,7 @@ describe('ngraph', () => {
         expect(forwardPath).toEqual([])
         // suddenly appearing at the last node locks it
         // and unlocks nodes behind it
-        lockNext(nodeC)
+        lockNext('c')
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeTruthy()
