@@ -811,7 +811,10 @@ describe('Exceptions', () => {
             (nextNodes) => {}
         )
 
+        const logSpyError = jest.spyOn(console, 'error').mockImplementation()
         expect(() => test1At.lockNext(nodeA)).not.toThrow()
+        expect(logSpyError).not.toHaveBeenCalled()
         expect(() => test1At.lockNext(nodeX)).toThrow()
+        expect(logSpyError).toHaveBeenCalled()
     })
 })

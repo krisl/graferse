@@ -134,7 +134,7 @@ function makeMakeLocker<T> (
 
             const currentIdx = path.findIndex(node => identity(node) === currentNode)
             if (currentIdx === -1) {
-                console.error(`  Couldnt find "${currentNode}" in ${path.map(identity)}`)
+                console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
                 throw new Error("Wheres your node?")
             }
 
