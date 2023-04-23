@@ -317,7 +317,7 @@ describe('ngraph', () => {
 
         var s1ForwardPath: Array<Node<Lock>> = []
         var s2ForwardPath: Array<Node<Lock>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id)
         const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
         const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
 
@@ -330,7 +330,7 @@ describe('ngraph', () => {
         expect(s2ForwardPath).toEqual([])
 
         // moving agent1 to the first node locks it, and the next
-        s1LockNext(nodeA)
+        s1LockNext('a')
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
@@ -340,7 +340,7 @@ describe('ngraph', () => {
 
         // moving agent1 to its first node locks it
         // but the second is common to both paths, and already locked
-        s2LockNext(nodeB)
+        s2LockNext('b')
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent2")).toBeTruthy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
@@ -350,7 +350,7 @@ describe('ngraph', () => {
 
         // moving agent1 to the last node locks it, and unlocks all prior nodes
         // and allows agent2 to progress to NodeC
-        s1LockNext(nodeD)
+        s1LockNext('d')
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked("agent2")).toBeTruthy()
         expect(nodeC.data.isLocked("agent2")).toBeTruthy()
