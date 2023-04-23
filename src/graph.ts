@@ -1,8 +1,19 @@
+declare global {
+    interface Set<T> {
+        addAll(s: Set<T> | undefined): void
+    }
+}
+
+Set.prototype.addAll = function(s) {
+    s && s.forEach(item => this.add(item))
+}
+
 class Lock {
     lockedBy: Set<string> = new Set()
     waiting: Set<string> = new Set()
 
     requestLock (byWhom: string, what: string) {
+        this.waiting.delete(byWhom)
         if (!this.isLocked()) {
             this.forceLock(byWhom)
             return true
@@ -26,13 +37,11 @@ class Lock {
         this.lockedBy.delete(byWhom)
 
         if (!this.isLocked()) {
-            // FIXME, dont dequeu them here
-            // just notifiy all waiters, or one by one until someone aquires the lock
-            // remove from waiting list only when they acquire the lock
-            // dequeue a waiter
-            const [waiter] = this.waiting
-            this.waiting.delete(waiter)
-            return waiter
+            // no guarentee that this resource is obtainable by any of the waiters
+            // so return all and let them obtain new waits on any new resources
+            const waiters = new Set(this.waiting)
+            this.waiting.clear()
+            return waiters
         }
     }
 
@@ -170,18 +179,17 @@ function makeMakeLocker<T> (
                     // actually these are going to need to unlock when a robot
                     // reports _any_ position in the graph not just on this path!
                     // at least release all previous links in path
-                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                    whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
-                    console.log({whoCanMoveNow})
                     if (i > 0) {
-                        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
                     }
                     continue
                 }
 
                 if (i === currentIdx) {
                     if (i > 0) {
-                        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
                     }
 
                     getLock(path[i]).forceLock(byWhom)
@@ -222,9 +230,9 @@ function makeMakeLocker<T> (
                 console.log(`── clearAllLocks | ${byWhom} ──`);
                 const whoCanMoveNow = new Set<string|undefined>()
                 for (let i = 0; i < path.length; i++) {
-                    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
+                    whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     if (i < path.length -1) // expect the last node
-                        whoCanMoveNow.add(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                        whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
                 }
                 for (const waiter of whoCanMoveNow) {
                     if (waiter) {
