@@ -778,8 +778,8 @@ describe('Components', () => {
 
     describe('LinkLock', () => {
         test('locking when directed edge', () => {
-            const logSpyWarn = jest.spyOn(console, 'warn')
-            const logSpyError = jest.spyOn(console, 'warn')
+            const logSpyWarn = jest.spyOn(console, 'warn').mockImplementation()
+            const logSpyError = jest.spyOn(console, 'error').mockImplementation()
             const linkLock = new LinkLock() // by default is directed edge
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
