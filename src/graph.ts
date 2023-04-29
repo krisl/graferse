@@ -173,6 +173,10 @@ function makeMakeLocker<T> (
             //}
 
             for (let i = 0; i <= nextIdx; i++) {
+                // unlock all edges before current position
+                if (i > 0 && i <= currentIdx)
+                    whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+
                 // if its behind the prevIdx, unlock it
                 if (i < prevIdx) {
                     // FIXME
@@ -181,17 +185,10 @@ function makeMakeLocker<T> (
                     // at least release all previous links in path
                     whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
-                    if (i > 0) {
-                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                    }
                     continue
                 }
 
                 if (i === currentIdx) {
-                    if (i > 0) {
-                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-                    }
-
                     getLock(path[i]).forceLock(byWhom)
                     console.log("  trying to lock bidir edge from current node %o", identity(path[i]))
                     if (!tryLockAllBidirectionalEdges(path.slice(i, i+2))) {
