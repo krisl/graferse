@@ -146,6 +146,21 @@ function makeMakeLocker<T> (
             return true
         }
 
+        const clearAllLocks = () => {
+            console.log(`── clearAllLocks | ${byWhom} ──`);
+            const whoCanMoveNow = new Set<string|undefined>()
+            for (let i = 0; i < path.length; i++) {
+                whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
+                if (i < path.length -1) // except the last node
+                    whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+            }
+            for (const waiter of whoCanMoveNow) {
+                if (waiter) {
+                    lastCallCache.get(waiter)()
+                }
+            }
+        }
+
         const lockNext = (currentNode: any) => {
             console.log(`┌─ Lock | ${byWhom} ${currentNode} ──`);
             lastCallCache.set(byWhom, () => lockNext(currentNode))
@@ -154,12 +169,14 @@ function makeMakeLocker<T> (
             if (currentIdx === -1) {
                 console.error(`  You're claiming to be at a node not on your path`)
                 console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
+                clearAllLocks()
+                return
             }
 
             const beforeCount = 0, afterCount = 1
             const lastIdx = path.length -1
-            const prevIdx = currentIdx === -1 ? path.length : Math.max(currentIdx - beforeCount, 0)      // first to be locked
-            const nextIdx = currentIdx === -1 ? lastIdx     : Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+            const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
+            const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string|undefined>()
             // go through path from start to last node to be locked
             //for (let i = 0; i < prevIdx; i++) {
@@ -212,20 +229,7 @@ function makeMakeLocker<T> (
 
         return {
             lockNext,
-            clearAllLocks: () => {
-                console.log(`── clearAllLocks | ${byWhom} ──`);
-                const whoCanMoveNow = new Set<string|undefined>()
-                for (let i = 0; i < path.length; i++) {
-                    whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
-                    if (i < path.length -1) // expect the last node
-                        whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
-                }
-                for (const waiter of whoCanMoveNow) {
-                    if (waiter) {
-                        lastCallCache.get(waiter)()
-                    }
-                }
-            },
+            clearAllLocks,
         }
     }
 }
