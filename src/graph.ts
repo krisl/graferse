@@ -188,24 +188,15 @@ function makeMakeLocker<T> (
                     continue
                 }
 
-                if (i === currentIdx) {
-                    getLock(path[i]).forceLock(byWhom)
-                    console.log("  trying to lock bidir edge from current node %o", identity(path[i]))
-                    if (!tryLockAllBidirectionalEdges(path.slice(i, i+2))) {
-                        // failed to obtain lock, dont try to get any more
-                        break
-                    }
-
-                    continue
-                }
-
-                //if (i >= prevIdx) // must be true
-
-                // failed to obtain lock, dont try to get any more
+                /* Lock from prevIdx to nextIdx */
+                // if failed to obtain lock, dont try to get any more
                 if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
                     break;
                 }
-                console.log("  trying to lock bidir edges from next node %o", identity(path[i]))
+                console.log("  trying to lock bidir edges from node %o", identity(path[i]))
+                //TODO consider returning the length of obtained edge locks
+                // if its > 0, even though further failed, allow the againt to retain the node lock
+                // so we can enter corridors as far as we can and wait there
                 if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                     // unlock previously obtained node lock
                     getLock(path[i]).unlock(byWhom)

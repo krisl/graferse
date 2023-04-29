@@ -653,12 +653,13 @@ describe('ngraph', () => {
         s2LockNext('d')
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
-        expect(s2ForwardPath).toEqual([nodeD])
+        // and therefor fails to lock nodeD
+        expect(s2ForwardPath).toEqual([])
         expect(nodeA.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent1")).toBeTruthy()
         expect(nodeB.data.isLocked("agent2")).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeFalsy()
-        expect(nodeD.data.isLocked()).toBeTruthy()
+        expect(nodeD.data.isLocked()).toBeFalsy()
         expect(nodeE.data.isLocked()).toBeFalsy()
 
         expect(linkAB.data.isLocked("agent1")).toBeTruthy()
@@ -673,10 +674,11 @@ describe('ngraph', () => {
         // lets continue down the hallway
         s1LockNext('b')
         expect(s1ForwardPath).toEqual([nodeB, nodeC])
-        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s2ForwardPath).toEqual([])
 
         s1LockNext('c')
         expect(s1ForwardPath).toEqual([nodeC, nodeE])
+         // agent2 obtains nodeD just before stepping off bidir lane
         expect(s2ForwardPath).toEqual([nodeD])
 
         s1LockNext('e')
