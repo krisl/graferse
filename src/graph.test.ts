@@ -1100,7 +1100,7 @@ describe('Components', () => {
 })
 
 describe('Exceptions', () => {
-    test('node no on path', () => {
+    test('node not on path', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
             return new LinkLock()
         }
@@ -1119,9 +1119,21 @@ describe('Exceptions', () => {
         )
 
         const logSpyError = jest.spyOn(console, 'error').mockImplementation()
-        expect(() => test1At.lockNext(nodeA)).not.toThrow()
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
+
+        expect(() => test1At.lockNext(nodeB)).not.toThrow()
         expect(logSpyError).not.toHaveBeenCalled()
-        expect(() => test1At.lockNext(nodeX)).toThrow()
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeTruthy()
+        expect(nodeC.isLocked()).toBeTruthy()
+
+        expect(() => test1At.lockNext(nodeX)).not.toThrow()
         expect(logSpyError).toHaveBeenCalled()
+        // and all nodes are unlocked again
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
     })
 })

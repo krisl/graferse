@@ -154,14 +154,12 @@ function makeMakeLocker<T> (
             if (currentIdx === -1) {
                 console.error(`  You're claiming to be at a node not on your path`)
                 console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
-                //FIXME unlock all nodes on the path now
-                throw new Error("Wheres your node?")
             }
 
             const beforeCount = 0, afterCount = 1
             const lastIdx = path.length -1
-            const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
-            const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+            const prevIdx = currentIdx === -1 ? path.length : Math.max(currentIdx - beforeCount, 0)      // first to be locked
+            const nextIdx = currentIdx === -1 ? lastIdx     : Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string|undefined>()
             // go through path from start to last node to be locked
             //for (let i = 0; i < prevIdx; i++) {
@@ -179,10 +177,6 @@ function makeMakeLocker<T> (
 
                 // if its behind the prevIdx, unlock it
                 if (i < prevIdx) {
-                    // FIXME
-                    // actually these are going to need to unlock when a robot
-                    // reports _any_ position in the graph not just on this path!
-                    // at least release all previous links in path
                     whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
                     continue
