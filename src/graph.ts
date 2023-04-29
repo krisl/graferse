@@ -179,24 +179,24 @@ function makeMakeLocker<T> (
 
             const beforeCount = 0, afterCount = 1
             const lastIdx = path.length -1
-            const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
-            const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+            const freeTil = Math.max(currentIdx - beforeCount, 0)      // first to be locked
+            const lockTil = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string>()
 
             // go through path from start to last node to be locked
-            for (let i = 0; i <= nextIdx; i++) {
+            for (let i = 0; i <= lockTil; i++) {
                 // unlock all edges before current position
                 if (i > 0 && i <= currentIdx)
                     whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
 
-                // if its behind the prevIdx, unlock it
-                if (i < prevIdx) {
+                // if its behind the freeTil, unlock it
+                if (i < freeTil) {
                     whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                     console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
                     continue
                 }
 
-                /* Lock from prevIdx to nextIdx */
+                /* Lock from freeTil to lockTil */
                 // if failed to obtain lock, dont try to get any more
                 if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
                     break;
