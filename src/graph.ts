@@ -146,6 +146,14 @@ function makeMakeLocker<T> (
             return true
         }
 
+        const notifyWaiters = (whoCanMoveNow: Set<string|undefined>) => {
+            for (const waiter of whoCanMoveNow) {
+                if (waiter) {
+                    lastCallCache.get(waiter)()
+                }
+            }
+        }
+
         const clearAllLocks = () => {
             console.log(`── clearAllLocks | ${byWhom} ──`);
             const whoCanMoveNow = new Set<string|undefined>()
@@ -154,11 +162,7 @@ function makeMakeLocker<T> (
                 if (i < path.length -1) // except the last node
                     whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
             }
-            for (const waiter of whoCanMoveNow) {
-                if (waiter) {
-                    lastCallCache.get(waiter)()
-                }
-            }
+            notifyWaiters(whoCanMoveNow)
         }
 
         const lockNext = (currentNode: any) => {
@@ -219,11 +223,7 @@ function makeMakeLocker<T> (
             // FIXME dont callback  with same values as last time? or up to clients to handle spurious notifications?
             callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
 
-            for (const waiter of whoCanMoveNow) {
-                if (waiter) {
-                    lastCallCache.get(waiter)()
-                }
-            }
+            notifyWaiters(whoCanMoveNow)
             console.log('└────\n')
         }
 
