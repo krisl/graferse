@@ -146,17 +146,15 @@ function makeMakeLocker<T> (
             return true
         }
 
-        const notifyWaiters = (whoCanMoveNow: Set<string|undefined>) => {
+        const notifyWaiters = (whoCanMoveNow: Set<string>) => {
             for (const waiter of whoCanMoveNow) {
-                if (waiter) {
-                    lastCallCache.get(waiter)()
-                }
+                lastCallCache.get(waiter)()
             }
         }
 
         const clearAllLocks = () => {
             console.log(`── clearAllLocks | ${byWhom} ──`);
-            const whoCanMoveNow = new Set<string|undefined>()
+            const whoCanMoveNow = new Set<string>()
             for (let i = 0; i < path.length; i++) {
                 whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                 if (i < path.length -1) // except the last node
@@ -181,7 +179,7 @@ function makeMakeLocker<T> (
             const lastIdx = path.length -1
             const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
             const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
-            const whoCanMoveNow = new Set<string|undefined>()
+            const whoCanMoveNow = new Set<string>()
             // go through path from start to last node to be locked
             //for (let i = 0; i < prevIdx; i++) {
             //    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
