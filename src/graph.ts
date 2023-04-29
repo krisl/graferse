@@ -30,6 +30,8 @@ class Lock {
     }
 
     forceLock (byWhom: string) {
+        //TODO distinguish between single(Node) and multi(Edge) locks
+        //throw if single calls forceLock when already locked
         this.lockedBy.add(byWhom)
     }
 
@@ -180,15 +182,8 @@ function makeMakeLocker<T> (
             const prevIdx = Math.max(currentIdx - beforeCount, 0)      // first to be locked
             const nextIdx = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
             const whoCanMoveNow = new Set<string>()
-            // go through path from start to last node to be locked
-            //for (let i = 0; i < prevIdx; i++) {
-            //    whoCanMoveNow.add(getLock(path[i]).unlock(byWhom))
-            //    if (i > 0)
-            //        whoCanMoveNow.add(getLockForLink(path[i-1], path[i]).unlock(byWhom))
-            //}
-            //for (let i = prevIdx; i <= nextIdx; i++) {
-            //}
 
+            // go through path from start to last node to be locked
             for (let i = 0; i <= nextIdx; i++) {
                 // unlock all edges before current position
                 if (i > 0 && i <= currentIdx)
@@ -218,7 +213,7 @@ function makeMakeLocker<T> (
             }
 
             console.log({whoCanMoveNow})
-            // FIXME dont callback  with same values as last time? or up to clients to handle spurious notifications?
+            // TODO consider not calling back with same values as last time or leave it up to clients to handle this
             callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
 
             notifyWaiters(whoCanMoveNow)
