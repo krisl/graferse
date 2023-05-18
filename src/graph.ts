@@ -261,7 +261,8 @@ function makeMakeLocker<T,U=string> (
             }
         }
         return {
-            makePathLocker
+            makePathLocker,
+            clearAllLocks: () => creator.clearAllLocks(byWhom)
         }
     }
 }
