@@ -114,7 +114,7 @@ function makeMakeLocker<T,U=string> (
     const lastCallCache = new Map<string,any>()
 
     type NextNodes = (nextNodes: U[], remaining: number) => void
-    return (path: T[]) => (byWhom: string, callback: NextNodes) => {
+    return (byWhom: string) => (path: T[]) => (callback: NextNodes) => {
 
         // given an index in the path, tries to lock all bidirectional edges
         // till the last node in the path

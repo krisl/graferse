@@ -38,13 +38,11 @@ describe('no dependencies', () => {
         const forwardPaths1: Array<Array<string>> = []
         const forwardPaths2: Array<Array<string>> = []
 
-        const test1At = makeLocker(path1)(
-            "test1",
+        const test1At = makeLocker("test1")(path1)(
             (nextNodes) => { forwardPaths1.push(nextNodes) }
         )
 
-        const test2At = makeLocker(path2)(
-            "test2",
+        const test2At = makeLocker("test2")(path2)(
             (nextNodes) => { forwardPaths2.push(nextNodes) }
         )
 
@@ -109,13 +107,11 @@ describe('no dependencies', () => {
         var forwardPath1: Array<Lock> = []
         var forwardPath2: Array<Lock> = []
 
-        const test1At = makeLocker(path1)(
-            "test1",
+        const test1At = makeLocker("test1")(path1)(
             (nextNodes) => { forwardPath1 = nextNodes }
         )
 
-        const test2At = makeLocker(path2)(
-            "test2",
+        const test2At = makeLocker("test2")(path2)(
             (nextNodes) => { forwardPath2 = nextNodes }
         )
 
@@ -180,8 +176,8 @@ describe('ngraph', () => {
         const makeLocker = makeMakeLocker<Node<Lock>>(
             node => node.data,
             getLockForLink,
-            node => node.id as string)(path)
-        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes }).lockNext
+            node => node.id as string)("agent1")
+        const lockNext = makeLocker(path)((nextNodes) => { forwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -227,9 +223,9 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)(path)
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)("agent1")
         var forwardPath: Array<string> = []
-        const locker = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes })
+        const locker = makeLocker(path)((nextNodes) => { forwardPath = nextNodes })
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -273,8 +269,8 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         var forwardPath: Array<string> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)(path)
-        const lockNext = makeLocker("agent1", (nextNodes) => { forwardPath = nextNodes }).lockNext
+        const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)("agent1")
+        const lockNext = makeLocker(path)((nextNodes) => { forwardPath = nextNodes }).lockNext
 
         // manually lock all nodes
         nodeA.data.requestLock("agent1")
@@ -321,8 +317,8 @@ describe('ngraph', () => {
         var s1ForwardPath: Array<string> = []
         var s2ForwardPath: Array<string> = []
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
+        const s1LockNext = makeLocker("agent1")(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+        const s2LockNext = makeLocker("agent2")(s2Path)((nextNodes) => { s2ForwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -433,11 +429,11 @@ describe('ngraph', () => {
         const s2NextPaths: Array<Array<string>> = []
         var s1calls = 0
         var s2calls = 0
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => {
+        const s1LockNext = makeLocker("agent1")(s1Path)((nextNodes) => {
             s1NextPaths.push(nextNodes)
             s1calls++
         }).lockNext
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => {
+        const s2LockNext = makeLocker("agent2")(s2Path)((nextNodes) => {
             s2NextPaths.push(nextNodes)
             s2calls++
         }).lockNext
@@ -611,7 +607,7 @@ describe('ngraph', () => {
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string, d => d.id)
         var s1ForwardPath: Array<string> = []
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+        const s1LockNext = makeLocker("agent1")(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
 
         // all nodes are unlocked
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -652,7 +648,7 @@ describe('ngraph', () => {
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'b').reverse()
         var s2ForwardPath: Array<string> = []
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
+        const s2LockNext = makeLocker("agent2")(s2Path)((nextNodes) => { s2ForwardPath = nextNodes }).lockNext
         s2LockNext('d')
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
@@ -724,7 +720,7 @@ describe('ngraph', () => {
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)
         var s1ForwardPath: Array<string> = []
-        const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+        const s1LockNext = makeLocker("agent1")(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
 
         expect(s1ForwardPath).toEqual([])
 
@@ -735,7 +731,7 @@ describe('ngraph', () => {
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'a').reverse()
         var s2ForwardPath: Array<string> = []
-        const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
+        const s2LockNext = makeLocker("agent2")(s2Path)((nextNodes) => { s2ForwardPath = nextNodes }).lockNext
         console.log({s2Path})
         s2LockNext('d')
 
@@ -748,7 +744,7 @@ describe('ngraph', () => {
 
         const s3Path = pathFinder.find('a', 'f').reverse()
         var s3ForwardPath: Array<string> = []
-        const s3LockNext = makeLocker(s3Path)("agent3", (nextNodes) => { s3ForwardPath = nextNodes }).lockNext
+        const s3LockNext = makeLocker("agent3")(s3Path)((nextNodes) => { s3ForwardPath = nextNodes }).lockNext
 
         console.warn('s3 stepping to node a')
         s3LockNext('a')
@@ -842,8 +838,8 @@ describe('ngraph', () => {
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)
         var nextNodes1: Array<string> = []
         var nextNodes2: Array<string> = []
-        const agent1at = makeLocker(path1)("agent1", (nn) => { nextNodes1 = nn }).lockNext
-        const agent2at = makeLocker(path2)("agent2", (nn) => { nextNodes2 = nn }).lockNext
+        const agent1at = makeLocker("agent1")(path1)((nn) => { nextNodes1 = nn }).lockNext
+        const agent2at = makeLocker("agent2")(path2)((nn) => { nextNodes2 = nn }).lockNext
 
         expect(nextNodes1).toEqual([])
         expect(nextNodes2).toEqual([])
@@ -942,8 +938,8 @@ describe('ngraph', () => {
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)
         var nextNodes1: Array<string> = []
         var nextNodes2: Array<string> = []
-        const agent1at = makeLocker(path1)("agent1", (nn) => { nextNodes1 = nn }).lockNext
-        const agent2at = makeLocker(path2)("agent2", (nn) => { nextNodes2 = nn }).lockNext
+        const agent1at = makeLocker("agent1")(path1)((nn) => { nextNodes1 = nn }).lockNext
+        const agent2at = makeLocker("agent2")(path2)((nn) => { nextNodes2 = nn }).lockNext
 
         expect(nextNodes1).toEqual([])
         expect(nextNodes2).toEqual([])
@@ -1005,8 +1001,8 @@ describe('ngraph', () => {
     //    const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
     //    var s1ForwardPath: Array<Node<Lock>> = []
     //    var s2ForwardPath: Array<Node<Lock>> = []
-    //    const s1LockNext = makeLocker(s1Path)("agent1", (nextNodes) => { s1ForwardPath = nextNodes }).lockNext
-    //    const s2LockNext = makeLocker(s2Path)("agent2", (nextNodes) => { s2ForwardPath = nextNodes }).lockNext
+    //    const s1LockNext = makeLocker("agent1")(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
+    //    const s2LockNext = makeLocker("agent2")(s2Path)((nextNodes) => { s2ForwardPath = nextNodes }).lockNext
 
     //    // all nodes are unlocked
     //    expect(nodeA.data.isLocked()).toBeFalsy()
@@ -1060,7 +1056,7 @@ describe('ngraph', () => {
         const path = pathFinder.find('a', 'c').reverse()
 
         const makeLocker = makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink, node => node.id as string)
-        const lockNext = makeLocker(path)("agent1", (nextNodes) => {}).lockNext
+        const lockNext = makeLocker("agent1")(path)((nextNodes) => {}).lockNext
 
         for (var i = 0; i < path.length; i++) {
             lockNext(path[i].id)
@@ -1117,8 +1113,7 @@ describe('Exceptions', () => {
             (from, to) => new LinkLock(),
             node => node)
 
-        const test1At = makeLocker([nodeA, nodeB, nodeC])(
-            "test1",
+        const test1At = makeLocker("test1")([nodeA, nodeB, nodeC])(
             (nextNodes) => {}
         )
 
