@@ -85,7 +85,7 @@ describe('no dependencies', () => {
         expect(forwardPaths1.at(-1)).toEqual(['nodeC'])
         expect(forwardPaths2.at(-1)).toEqual(['nodeX', 'nodeB']) // nodeB is now unlocked
 
-        test1At.clearAllLocks()
+        test1At.clearAllPathLocks()
         //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeTruthy()
@@ -96,7 +96,7 @@ describe('no dependencies', () => {
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
 
-        test2At.clearAllLocks()
+        test2At.clearAllPathLocks()
         //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
@@ -155,7 +155,7 @@ describe('no dependencies', () => {
         expect(forwardPath1).toEqual([nodeC])
         expect(forwardPath2).toEqual([nodeX, nodeB]) // nodeB is now unlocked
 
-        test1At.clearAllLocks()
+        test1At.clearAllPathLocks()
         //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeTruthy()
@@ -166,7 +166,7 @@ describe('no dependencies', () => {
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
 
-        test2At.clearAllLocks()
+        test2At.clearAllPathLocks()
         //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
@@ -233,7 +233,7 @@ describe('ngraph', () => {
 
     })
 
-    test('basic locking - clearAllLocks', () => {
+    test('basic locking - clearAllPathLocks', () => {
         const graph = ngraphCreateGraph()
 
         const nodeA = graph.addNode('a', new Lock())
@@ -272,7 +272,7 @@ describe('ngraph', () => {
         expect(nodeC.data.isLocked()).toBeTruthy()
         expect(forwardPath).toEqual(['b', 'c'])
 
-        locker.clearAllLocks();
+        locker.clearAllPathLocks();
 
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()

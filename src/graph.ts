@@ -174,8 +174,8 @@ function makeMakeLocker<T,U=string> (
                 return true
             }
 
-            const clearAllLocks = () => {
-                console.log(`── clearAllLocks | ${byWhom} ──`);
+            const clearAllPathLocks = () => {
+                console.log(`── clearAllPathLocks | ${byWhom} ──`);
                 const whoCanMoveNow = new Set<string>()
                 for (let i = 0; i < path.length; i++) {
                     whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
@@ -193,7 +193,7 @@ function makeMakeLocker<T,U=string> (
                 if (currentIdx === -1) {
                     console.error(`  You're claiming to be at a node not on your path`)
                     console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
-                    clearAllLocks()
+                    clearAllPathLocks()
                     return
                 }
 
@@ -245,7 +245,7 @@ function makeMakeLocker<T,U=string> (
 
             return {
                 lockNext,
-                clearAllLocks,
+                clearAllPathLocks,
             }
         }
         return {
