@@ -109,6 +109,7 @@ class Graferse
 {
     locks: Lock[] = []
     linkLocks: LinkLock[] = []
+    lastCallCache = new Map<string,any>()
 
     makeLock() {
         const lock = new Lock()
@@ -124,13 +125,12 @@ class Graferse
 }
 
 function makeMakeLocker<T,U=string> (
+        creator: Graferse,
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
         identity: (x: T) => U,          // returns external node identity
         directionIdentity: (x: T) => any = x => x, // returns an identifer representing direction
 ) {
-    const lastCallCache = new Map<string,any>()
-
     type NextNodes = (nextNodes: U[], remaining: number) => void
     return (byWhom: string) => {
         const makePathLocker = (path: T[]) => (callback: NextNodes) => {
@@ -170,7 +170,7 @@ function makeMakeLocker<T,U=string> (
 
             const notifyWaiters = (whoCanMoveNow: Set<string>) => {
                 for (const waiter of whoCanMoveNow) {
-                    lastCallCache.get(waiter)()
+                    creator.lastCallCache.get(waiter)()
                 }
             }
 
@@ -187,7 +187,7 @@ function makeMakeLocker<T,U=string> (
 
             const lockNext = (currentNode: any) => {
                 console.log(`┌─ Lock | ${byWhom} ${currentNode} ──`);
-                lastCallCache.set(byWhom, () => lockNext(currentNode))
+                creator.lastCallCache.set(byWhom, () => lockNext(currentNode))
 
                 const currentIdx = path.findIndex(node => identity(node) === currentNode)
                 if (currentIdx === -1) {
