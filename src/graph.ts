@@ -122,6 +122,12 @@ class Graferse
         this.linkLocks.push(linkLock)
         return linkLock
     }
+
+    notifyWaiters(whoCanMoveNow: Set<string>) {
+        for (const waiter of whoCanMoveNow) {
+            this.lastCallCache.get(waiter)()
+        }
+    }
 }
 
 function makeMakeLocker<T,U=string> (
@@ -168,12 +174,6 @@ function makeMakeLocker<T,U=string> (
                 return true
             }
 
-            const notifyWaiters = (whoCanMoveNow: Set<string>) => {
-                for (const waiter of whoCanMoveNow) {
-                    creator.lastCallCache.get(waiter)()
-                }
-            }
-
             const clearAllLocks = () => {
                 console.log(`── clearAllLocks | ${byWhom} ──`);
                 const whoCanMoveNow = new Set<string>()
@@ -182,7 +182,7 @@ function makeMakeLocker<T,U=string> (
                     if (i < path.length -1) // except the last node
                         whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
                 }
-                notifyWaiters(whoCanMoveNow)
+                creator.notifyWaiters(whoCanMoveNow)
             }
 
             const lockNext = (currentNode: any) => {
@@ -239,7 +239,7 @@ function makeMakeLocker<T,U=string> (
                     path.length - (currentIdx +1)
                 )
 
-                notifyWaiters(whoCanMoveNow)
+                creator.notifyWaiters(whoCanMoveNow)
                 console.log('└────\n')
             }
 
