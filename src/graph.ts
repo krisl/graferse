@@ -216,7 +216,10 @@ function makeMakeLocker<T> (
 
             console.log({whoCanMoveNow})
             // TODO consider not calling back with same values as last time or leave it up to clients to handle this
-            callback(path.filter(node => getLock(node).isLocked(byWhom)), path.length - (currentIdx +1))
+            callback(
+                path.filter(node => getLock(node).isLocked(byWhom)),
+                path.length - (currentIdx +1)
+            )
 
             notifyWaiters(whoCanMoveNow)
             console.log('└────\n')
