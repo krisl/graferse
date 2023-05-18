@@ -105,15 +105,15 @@ class LinkLock {
     }
 }
 
-function makeMakeLocker<T> (
+function makeMakeLocker<T,U> (
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
-        identity: (x: T) => any = x => x,          // returns external node identity
+        identity: (x: T) => U,          // returns external node identity
         directionIdentity: (x: T) => any = x => x, // returns an identifer representing direction
 ) {
     const lastCallCache = new Map<string,any>()
 
-    type NextNodes = (nextNodes: any[], remaining: number) => void
+    type NextNodes = (nextNodes: U[], remaining: number) => void
     return (path: T[]) => (byWhom: string, callback: NextNodes) => {
 
         // given an index in the path, tries to lock all bidirectional edges
