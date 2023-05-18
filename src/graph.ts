@@ -159,8 +159,13 @@ class Graferse
     isLockGroupAvailable(lock: Lock, byWhom: string) {
         for(const lockGroup of this.lockGroups) {
             if (lockGroup.includes(lock)) {
-                if (lockGroup.filter(l => l !== lock)
-                             .some(l => l.isLockedByOtherThan(byWhom))) {
+                const lockedNode = lockGroup.filter(l => l !== lock)
+                                            .find(l => l.isLockedByOtherThan(byWhom))
+                if (lockedNode) {
+                    // wait on this locked node
+                    if (lockedNode.requestLock(byWhom, "lockGroup")) {
+                        throw new Error("lock was locked, but then not?")
+                    }
                     return false
                 }
             }
