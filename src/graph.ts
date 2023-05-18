@@ -128,6 +128,18 @@ class Graferse
             this.lastCallCache.get(waiter)()
         }
     }
+
+    clearAllLocks(byWhom: string) {
+        console.log(`── clearAllLocks | ${byWhom} ──`);
+        const whoCanMoveNow = new Set<string>()
+        for (const lock of this.locks) {
+            whoCanMoveNow.addAll(lock.unlock(byWhom))
+        }
+        for (const linkLock of this.linkLocks) {
+            whoCanMoveNow.addAll(linkLock.unlock(byWhom))
+        }
+        this.notifyWaiters(whoCanMoveNow)
+    }
 }
 
 function makeMakeLocker<T,U=string> (
