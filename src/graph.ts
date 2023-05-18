@@ -5,7 +5,9 @@ declare global {
 }
 
 Set.prototype.addAll = function(s) {
-    s && s.forEach(item => this.add(item))
+    if (s) {
+        s.forEach(item => this.add(item))
+    }
 }
 
 class Lock {
@@ -30,8 +32,8 @@ class Lock {
     }
 
     forceLock (byWhom: string) {
-        //TODO distinguish between single(Node) and multi(Edge) locks
-        //throw if single calls forceLock when already locked
+        // TODO distinguish between single(Node) and multi(Edge) locks
+        // throw if single calls forceLock when already locked
         this.lockedBy.add(byWhom)
     }
 
@@ -122,8 +124,8 @@ function makeMakeLocker<T> (
             if (subpath.length < 2) {
                 return true
             }
-            //TODO will these locks and unlocks trigger waiters?
-            //may need a cangetlock? function.  prepare lock?
+            // TODO will these locks and unlocks trigger waiters?
+            // may need a cangetlock? function.  prepare lock?
             const linkLock = getLockForLink(subpath[0], subpath[1])
             const desc = `from ${identity(subpath[0])} to ${identity(subpath[1])}`
             if (!linkLock.isBidirectional) {
@@ -202,7 +204,7 @@ function makeMakeLocker<T> (
                     break;
                 }
                 console.log("  trying to lock bidir edges from node %o", identity(path[i]))
-                //TODO consider returning the length of obtained edge locks
+                // TODO consider returning the length of obtained edge locks
                 // if its > 0, even though further failed, allow the againt to retain the node lock
                 // so we can enter corridors as far as we can and wait there
                 if (!tryLockAllBidirectionalEdges(path.slice(i))) {
