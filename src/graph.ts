@@ -105,6 +105,8 @@ class LinkLock {
     }
 }
 
+// TODO support lock families/groups/exclusive areas, where taking one locks means taking them all
+// TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 class Graferse
 {
     locks: Lock[] = []
