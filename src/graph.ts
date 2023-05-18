@@ -116,7 +116,7 @@ class Graferse
     locks: Lock[] = []
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
-    lastCallCache = new Map<string,any>()
+    lastCallCache = new Map<string,() => void>()
 
     makeLock() {
         const lock = new Lock()
@@ -132,7 +132,11 @@ class Graferse
 
     notifyWaiters(whoCanMoveNow: Set<string>) {
         for (const waiter of whoCanMoveNow) {
-            this.lastCallCache.get(waiter)()
+            const lastCall = this.lastCallCache.get(waiter)
+            if (!lastCall) {
+                throw new Error(`lastCallCached did not have expect entry for ${waiter}`)
+            }
+            lastCall()
         }
     }
 
