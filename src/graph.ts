@@ -105,7 +105,7 @@ class LinkLock {
     }
 }
 
-function makeMakeLocker<T,U> (
+function makeMakeLocker<T,U=string> (
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
         identity: (x: T) => U,          // returns external node identity
