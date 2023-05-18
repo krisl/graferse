@@ -266,4 +266,5 @@ function makeMakeLocker<T,U=string> (
     }
 }
 
-export { Lock, LinkLock, makeMakeLocker, Graferse }
+export { makeMakeLocker, Graferse }
+export type { Lock, LinkLock }
