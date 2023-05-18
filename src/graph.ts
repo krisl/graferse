@@ -230,7 +230,9 @@ function makeMakeLocker<T,U=string> (
                 clearAllLocks,
             }
         }
-        return makePathLocker
+        return {
+            makePathLocker
+        }
     }
 }
 
