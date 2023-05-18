@@ -54,6 +54,11 @@ class Lock {
             ? this.lockedBy.has(byWhom)
             : this.lockedBy.size > 0
     }
+
+    isLockedByOtherThan(byWhom: string) {
+        return this.lockedBy.size > 1
+          || (this.lockedBy.size === 1 && !this.isLocked(byWhom))
+    }
 }
 
 type LinkLockType = "FREE" | "PRO" | "CON"
@@ -105,12 +110,12 @@ class LinkLock {
     }
 }
 
-// TODO support lock families/groups/exclusive areas, where taking one locks means taking them all
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 class Graferse
 {
     locks: Lock[] = []
     linkLocks: LinkLock[] = []
+    lockGroups: Lock[][] = []
     lastCallCache = new Map<string,any>()
 
     makeLock() {
@@ -141,6 +146,22 @@ class Graferse
             whoCanMoveNow.addAll(linkLock.unlock(byWhom))
         }
         this.notifyWaiters(whoCanMoveNow)
+    }
+
+    setLockGroup(lockGroup: Lock[]) {
+        this.lockGroups.push(lockGroup)
+    }
+
+    isLockGroupAvailable(lock: Lock, byWhom: string) {
+        for(const lockGroup of this.lockGroups) {
+            if (lockGroup.includes(lock)) {
+                if (lockGroup.filter(l => l !== lock)
+                             .some(l => l.isLockedByOtherThan(byWhom))) {
+                    return false
+                }
+            }
+        }
+        return true
     }
 }
 
@@ -230,9 +251,14 @@ function makeMakeLocker<T,U=string> (
                         continue
                     }
 
+                    const lock = getLock(path[i])
+                    if (!creator.isLockGroupAvailable(lock, byWhom)) {
+                        console.warn("Could not obtain lock, group is locked")
+                        break;
+                    }
                     /* Lock from firstToLock to lastToLock */
                     // if failed to obtain lock, dont try to get any more
-                    if (!getLock(path[i]).requestLock(byWhom, JSON.stringify(identity(path[i])))) {
+                    if (!lock.requestLock(byWhom, JSON.stringify(identity(path[i])))) {
                         break;
                     }
                     console.log("  trying to lock bidir edges from node %o", identity(path[i]))
@@ -241,7 +267,7 @@ function makeMakeLocker<T,U=string> (
                     // so we can enter corridors as far as we can and wait there
                     if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                         // unlock previously obtained node lock
-                        getLock(path[i]).unlock(byWhom)
+                        lock.unlock(byWhom)
                         break
                     }
                 }
