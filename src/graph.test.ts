@@ -52,20 +52,20 @@ describe('no dependencies', () => {
         expect(forwardPaths2).toEqual([])
 
         test1At.lockNext('nodeA')
-        expect(forwardPaths1).toEqual([[nodeA, nodeB]])
+        expect(forwardPaths1).toEqual([['nodeA', 'nodeB']])
         expect(forwardPaths2).toEqual([])
 
         test2At.lockNext('nodeX')
-        expect(forwardPaths1.at(-1)).toEqual([nodeA, nodeB])
-        expect(forwardPaths2.at(-1)).toEqual([nodeX]) // only nodeX because nodeB is locked
+        expect(forwardPaths1.at(-1)).toEqual(['nodeA', 'nodeB'])
+        expect(forwardPaths2.at(-1)).toEqual(['nodeX']) // only nodeX because nodeB is locked
 
         test1At.lockNext('nodeB')
-        expect(forwardPaths1.at(-1)).toEqual([nodeB, nodeC])
-        expect(forwardPaths2.at(-1)).toEqual([nodeX]) // only nodeX because nodeB is still locked
+        expect(forwardPaths1.at(-1)).toEqual(['nodeB', 'nodeC'])
+        expect(forwardPaths2.at(-1)).toEqual(['nodeX']) // only nodeX because nodeB is still locked
 
         test1At.lockNext('nodeC')
-        expect(forwardPaths1.at(-1)).toEqual([nodeC])
-        expect(forwardPaths2.at(-1)).toEqual([nodeX, nodeB]) // nodeB is now unlocked
+        expect(forwardPaths1.at(-1)).toEqual(['nodeC'])
+        expect(forwardPaths2.at(-1)).toEqual(['nodeX', 'nodeB']) // nodeB is now unlocked
 
         test1At.clearAllLocks()
         //expect(forwardPath1).toEqual([])
@@ -73,7 +73,7 @@ describe('no dependencies', () => {
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPaths2).toEqual([nodeB, nodeX]) // no change
+        //expect(forwardPaths2).toEqual(['nodeB', 'nodeX']) // no change
         expect(nodeX.isLocked()).toBeTruthy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
@@ -191,7 +191,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeFalsy()
-        expect(forwardPath).toEqual([nodeA, nodeB])
+        expect(forwardPath).toEqual(['a', 'b'])
 
         // progressing to the second node locks it, and the next
         // and unlocks nodes behind it
@@ -199,7 +199,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeTruthy()
-        expect(forwardPath).toEqual([nodeB, nodeC])
+        expect(forwardPath).toEqual(['b', 'c'])
 
         // progressing to the last node locks it
         // and unlocks nodes behind it
@@ -207,7 +207,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeTruthy()
-        expect(forwardPath).toEqual([nodeC])
+        expect(forwardPath).toEqual(['c'])
 
     })
 
@@ -239,7 +239,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeFalsy()
-        expect(forwardPath).toEqual([nodeA, nodeB])
+        expect(forwardPath).toEqual(['a', 'b'])
 
         // progressing to the second node locks it, and the next
         // and unlocks nodes behind it
@@ -247,7 +247,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeTruthy()
-        expect(forwardPath).toEqual([nodeB, nodeC])
+        expect(forwardPath).toEqual(['b', 'c'])
 
         locker.clearAllLocks();
 
@@ -289,7 +289,7 @@ describe('ngraph', () => {
         expect(nodeA.data.isLocked()).toBeFalsy()
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked()).toBeTruthy()
-        expect(forwardPath).toEqual([nodeC])
+        expect(forwardPath).toEqual(['c'])
     })
 
     test('two robot mutual exclusion', () => {
@@ -335,7 +335,7 @@ describe('ngraph', () => {
         expect(nodeB.data.isLocked()).toBeFalsy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
         expect(nodeD.data.isLocked()).toBeFalsy()
-        expect(s1ForwardPath).toEqual([nodeA, nodeC])
+        expect(s1ForwardPath).toEqual(['a', 'c'])
         expect(s2ForwardPath).toEqual([])
 
         // moving agent1 to its first node locks it
@@ -345,8 +345,8 @@ describe('ngraph', () => {
         expect(nodeB.data.isLocked("agent2")).toBeTruthy()
         expect(nodeC.data.isLocked("agent1")).toBeTruthy()
         expect(nodeD.data.isLocked()).toBeFalsy()
-        expect(s1ForwardPath).toEqual([nodeA, nodeC])
-        expect(s2ForwardPath).toEqual([nodeB])  // nodeC missing because locked by agent1
+        expect(s1ForwardPath).toEqual(['a', 'c'])
+        expect(s2ForwardPath).toEqual(['b'])  // nodeC missing because locked by agent1
 
         // moving agent1 to the last node locks it, and unlocks all prior nodes
         // and allows agent2 to progress to NodeC
@@ -355,8 +355,8 @@ describe('ngraph', () => {
         expect(nodeB.data.isLocked("agent2")).toBeTruthy()
         expect(nodeC.data.isLocked("agent2")).toBeTruthy()
         expect(nodeD.data.isLocked("agent1")).toBeTruthy()
-        expect(s1ForwardPath).toEqual([nodeD])
-        expect(s2ForwardPath).toEqual([nodeB, nodeC])
+        expect(s1ForwardPath).toEqual(['d'])
+        expect(s2ForwardPath).toEqual(['b', 'c'])
     })
 
     test('swap places via corridor', () => {
@@ -492,7 +492,7 @@ describe('ngraph', () => {
         expect(linkFG.data.isLocked()).toBeTruthy()
         // expect(linkGH.data.isLocked()).toBeFalsy() // not bidrections, we dont care
 
-        expect(s1NextPaths).toEqual([[nodeA, nodeC]])
+        expect(s1NextPaths).toEqual([['a', 'c']])
         expect(s1calls).toEqual(1)
 
         // a following robot appears
@@ -510,41 +510,41 @@ describe('ngraph', () => {
         expect(nodeH.data.isLocked()).toBeFalsy()
         expect(nodeI.data.isLocked()).toBeFalsy()
 
-        expect(s2NextPaths).toEqual([[nodeB]])
+        expect(s2NextPaths).toEqual([['b']])
         expect(s2calls).toEqual(1)
 
         // s1 moves to its next node
         s1LockNext('c')
-        expect(s1NextPaths.at(-1)).toEqual([nodeC, nodeD])
-        expect(s2NextPaths.at(-1)).toEqual([nodeB])
+        expect(s1NextPaths.at(-1)).toEqual(['c', 'd'])
+        expect(s2NextPaths.at(-1)).toEqual(['b'])
         expect(s1calls).toEqual(2)
         expect(s2calls).toEqual(1)
 
         // s1 moves to its next node again
         s1LockNext('d')
-        expect(s1NextPaths.at(-1)).toEqual([nodeD, nodeE])
-        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC]) // nodeC can now be obtained by s2
-        expect(s2NextPaths).toEqual([[nodeB], [nodeB, nodeC]]) // nodeC can now be obtained by s2
+        expect(s1NextPaths.at(-1)).toEqual(['d', 'e'])
+        expect(s2NextPaths.at(-1)).toEqual(['b', 'c']) // nodeC can now be obtained by s2
+        expect(s2NextPaths).toEqual([['b'], ['b', 'c']]) // nodeC can now be obtained by s2
         expect(s1calls).toEqual(3)
         expect(s2calls).toEqual(2)
 
         // s1 moves to its next node again
         s1LockNext('e')
-        expect(s1NextPaths.at(-1)).toEqual([nodeE, nodeF])
-        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC])
-        expect(s2NextPaths).toEqual([[nodeB], [nodeB, nodeC]])
+        expect(s1NextPaths.at(-1)).toEqual(['e', 'f'])
+        expect(s2NextPaths.at(-1)).toEqual(['b', 'c'])
+        expect(s2NextPaths).toEqual([['b'], ['b', 'c']])
         expect(s1calls).toEqual(4)
         expect(s2calls).toEqual(2)
 
         // s1 moves to its next node again
         s1LockNext('f')
-        expect(s1NextPaths.at(-1)).toEqual([nodeF, nodeG])
-        expect(s2NextPaths.at(-1)).toEqual([nodeB, nodeC])
+        expect(s1NextPaths.at(-1)).toEqual(['f', 'g'])
+        expect(s2NextPaths.at(-1)).toEqual(['b', 'c'])
 
         // s2 moves to its next node
         s2LockNext('c')
-        expect(s1NextPaths.at(-1)).toEqual([nodeF, nodeG])
-        expect(s2NextPaths.at(-1)).toEqual([nodeC, nodeD])
+        expect(s1NextPaths.at(-1)).toEqual(['f', 'g'])
+        expect(s2NextPaths.at(-1)).toEqual(['c', 'd'])
 
         // lets confirm all the locks
         expect(nodeA.data.isLocked()).toBeFalsy()
@@ -630,7 +630,7 @@ describe('ngraph', () => {
 
         s1LockNext('a')
         // its current and next nodes are locked
-        expect(s1ForwardPath).toEqual([nodeA, nodeB])
+        expect(s1ForwardPath).toEqual(['a', 'b'])
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeTruthy()
         expect(nodeC.data.isLocked()).toBeFalsy()
@@ -673,17 +673,17 @@ describe('ngraph', () => {
         //console.dir({s2Path}, {depth: null})
         // lets continue down the hallway
         s1LockNext('b')
-        expect(s1ForwardPath).toEqual([nodeB, nodeC])
+        expect(s1ForwardPath).toEqual(['b', 'c'])
         expect(s2ForwardPath).toEqual([])
 
         s1LockNext('c')
-        expect(s1ForwardPath).toEqual([nodeC, nodeE])
+        expect(s1ForwardPath).toEqual(['c', 'e'])
          // agent2 obtains nodeD just before stepping off bidir lane
-        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s2ForwardPath).toEqual(['d'])
 
         s1LockNext('e')
-        expect(s1ForwardPath).toEqual([nodeE])
-        expect(s2ForwardPath).toEqual([nodeD, nodeC])
+        expect(s1ForwardPath).toEqual(['e'])
+        expect(s2ForwardPath).toEqual(['d', 'c'])
     })
 
     test('three agents bidirectional corridor with early exit', () => {
@@ -727,7 +727,7 @@ describe('ngraph', () => {
 
         s1LockNext('a')
         // its current and next nodes are locked
-        expect(s1ForwardPath).toEqual([nodeA, nodeB])
+        expect(s1ForwardPath).toEqual(['a', 'b'])
 
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'a').reverse()
@@ -737,11 +737,11 @@ describe('ngraph', () => {
         s2LockNext('d')
 
         // but fails to get a lock on the c -> d link because its locked in the opposite direction
-        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s2ForwardPath).toEqual(['d'])
 
         s1LockNext('b')
-        expect(s1ForwardPath).toEqual([nodeB, nodeC])
-        expect(s2ForwardPath).toEqual([nodeD])
+        expect(s1ForwardPath).toEqual(['b', 'c'])
+        expect(s2ForwardPath).toEqual(['d'])
 
         const s3Path = pathFinder.find('a', 'f').reverse()
         var s3ForwardPath: Array<Node<Lock>> = []
@@ -749,21 +749,21 @@ describe('ngraph', () => {
 
         console.warn('s3 stepping to node a')
         s3LockNext('a')
-        expect(s1ForwardPath).toEqual([nodeB, nodeC])
-        expect(s2ForwardPath).toEqual([nodeD])
-        expect(s3ForwardPath).toEqual([nodeA])
+        expect(s1ForwardPath).toEqual(['b', 'c'])
+        expect(s2ForwardPath).toEqual(['d'])
+        expect(s3ForwardPath).toEqual(['a'])
 
         console.warn('s1 stepping to node c')
         s1LockNext('c')
-        expect(s1ForwardPath).toEqual([nodeC, nodeE])
-        expect(s2ForwardPath).toEqual([nodeD])
-        expect(s3ForwardPath).toEqual([nodeA, nodeB])
+        expect(s1ForwardPath).toEqual(['c', 'e'])
+        expect(s2ForwardPath).toEqual(['d'])
+        expect(s3ForwardPath).toEqual(['a', 'b'])
 
         console.warn('s3 stepping to node b')
         s3LockNext('b')
-        expect(s1ForwardPath).toEqual([nodeC, nodeE])
-        expect(s2ForwardPath).toEqual([nodeD])
-        expect(s3ForwardPath).toEqual([nodeB])
+        expect(s1ForwardPath).toEqual(['c', 'e'])
+        expect(s2ForwardPath).toEqual(['d'])
+        expect(s3ForwardPath).toEqual(['b'])
 
         //                      F
         //                     ^
@@ -774,9 +774,9 @@ describe('ngraph', () => {
         //                     E
         console.warn('s1 stepping to node e')
         s1LockNext('e')
-        expect(s1ForwardPath).toEqual([nodeE])
-        expect(s2ForwardPath).toEqual([nodeD])
-        expect(s3ForwardPath).toEqual([nodeB, nodeC])
+        expect(s1ForwardPath).toEqual(['e'])
+        expect(s2ForwardPath).toEqual(['d'])
+        expect(s3ForwardPath).toEqual(['b', 'c'])
     })
     test('two robots opposing directions never adject nodes', () => {
         //
@@ -846,36 +846,36 @@ describe('ngraph', () => {
         expect(nextNodes2).toEqual([])
 
         agent1at('a')
-        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes1).toEqual(['a', 'b'])
         expect(nextNodes2).toEqual([])
 
         agent2at('g')
-        expect(nextNodes1).toEqual([nodeA, nodeB])
-        expect(nextNodes2).toEqual([nodeG, nodeF])
+        expect(nextNodes1).toEqual(['a', 'b'])
+        expect(nextNodes2).toEqual(['g', 'f'])
 
         agent1at('b')
-        expect(nextNodes1).toEqual([nodeB, nodeC]) // now we block the way to Y for agent2
-        expect(nextNodes2).toEqual([nodeG, nodeF])
+        expect(nextNodes1).toEqual(['b', 'c']) // now we block the way to Y for agent2
+        expect(nextNodes2).toEqual(['g', 'f'])
 
         agent2at('f')
-        expect(nextNodes1).toEqual([nodeB, nodeC])
-        expect(nextNodes2).toEqual([nodeF]) // cant get E because agent1 has clear path to Z
+        expect(nextNodes1).toEqual(['b', 'c'])
+        expect(nextNodes2).toEqual(['f']) // cant get E because agent1 has clear path to Z
 
         agent1at('c')
-        expect(nextNodes1).toEqual([nodeC, nodeD])
-        expect(nextNodes2).toEqual([nodeF])
+        expect(nextNodes1).toEqual(['c', 'd'])
+        expect(nextNodes2).toEqual(['f'])
 
         agent1at('d')
-        expect(nextNodes1).toEqual([nodeD, nodeE])
-        expect(nextNodes2).toEqual([nodeF])
+        expect(nextNodes1).toEqual(['d', 'e'])
+        expect(nextNodes2).toEqual(['f'])
 
         agent1at('e')
-        expect(nextNodes1).toEqual([nodeE, nodeZ])
-        expect(nextNodes2).toEqual([nodeF])
+        expect(nextNodes1).toEqual(['e', 'z'])
+        expect(nextNodes2).toEqual(['f'])
 
         agent1at('z')
-        expect(nextNodes1).toEqual([nodeZ])
-        expect(nextNodes2).toEqual([nodeF, nodeE]) // now we can move to E
+        expect(nextNodes1).toEqual(['z'])
+        expect(nextNodes2).toEqual(['f', 'e']) // now we can move to E
     })
     test('two robots opposing directions never adject nodes - part2', () => {
         //
@@ -946,36 +946,36 @@ describe('ngraph', () => {
         expect(nextNodes2).toEqual([])
 
         agent1at('a')
-        expect(nextNodes1).toEqual([nodeA, nodeB])
+        expect(nextNodes1).toEqual(['a', 'b'])
         expect(nextNodes2).toEqual([])
 
         agent1at('b')
-        expect(nextNodes1).toEqual([nodeB, nodeC]) // now we block the way to Y for agent2
+        expect(nextNodes1).toEqual(['b', 'c']) // now we block the way to Y for agent2
         expect(nextNodes2).toEqual([])
 
         agent2at('g')
-        expect(nextNodes1).toEqual([nodeB, nodeC])
-        expect(nextNodes2).toEqual([nodeG])
+        expect(nextNodes1).toEqual(['b', 'c'])
+        expect(nextNodes2).toEqual(['g'])
 
         agent1at('c')
-        expect(nextNodes1).toEqual([nodeC, nodeD])
-        expect(nextNodes2).toEqual([nodeG])
+        expect(nextNodes1).toEqual(['c', 'd'])
+        expect(nextNodes2).toEqual(['g'])
 
         agent1at('d')
-        expect(nextNodes1).toEqual([nodeD, nodeE])
-        expect(nextNodes2).toEqual([nodeG])
+        expect(nextNodes1).toEqual(['d', 'e'])
+        expect(nextNodes2).toEqual(['g'])
 
         agent1at('e')
-        expect(nextNodes1).toEqual([nodeE, nodeZ])
-        expect(nextNodes2).toEqual([nodeG, nodeF])  // seems a little early to obtain nodeF
+        expect(nextNodes1).toEqual(['e', 'z'])
+        expect(nextNodes2).toEqual(['g', 'f'])  // seems a little early to obtain nodeF
 
         agent2at('f')
-        expect(nextNodes1).toEqual([nodeE, nodeZ])
-        expect(nextNodes2).toEqual([nodeF]) // cant get E because agent1 is tehre
+        expect(nextNodes1).toEqual(['e', 'z'])
+        expect(nextNodes2).toEqual(['f']) // cant get E because agent1 is tehre
 
         agent1at('z')
-        expect(nextNodes1).toEqual([nodeZ])
-        expect(nextNodes2).toEqual([nodeF, nodeE]) // now we can move to E
+        expect(nextNodes1).toEqual(['z'])
+        expect(nextNodes2).toEqual(['f', 'e']) // now we can move to E
     })
     // TODO add test that shows we are waiting on distant edge
     //test('two robots opposing directions in a narrow corridor', () => {
