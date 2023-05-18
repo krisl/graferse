@@ -105,6 +105,24 @@ class LinkLock {
     }
 }
 
+class Graferse
+{
+    locks: Lock[] = []
+    linkLocks: LinkLock[] = []
+
+    makeLock() {
+        const lock = new Lock()
+        this.locks.push(lock)
+        return lock
+    }
+
+    makeLinkLock(isBidirectional: boolean = false) {
+        const linkLock = new LinkLock(isBidirectional)
+        this.linkLocks.push(linkLock)
+        return linkLock
+    }
+}
+
 function makeMakeLocker<T,U=string> (
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
@@ -236,4 +254,4 @@ function makeMakeLocker<T,U=string> (
     }
 }
 
-export { Lock, LinkLock, makeMakeLocker }
+export { Lock, LinkLock, makeMakeLocker, Graferse }

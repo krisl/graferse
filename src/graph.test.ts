@@ -1,12 +1,30 @@
 import type { Node } from 'ngraph.graph'
 import ngraphCreateGraph from 'ngraph.graph'
 import ngraphPath from 'ngraph.path'
-import { Lock, LinkLock, makeMakeLocker } from './graph.js'
+import { Lock, LinkLock, makeMakeLocker, Graferse } from './graph.js'
 
 const getLockForLink = (from: Node, to: Node) => {
     const link = Array.from(from.links || []).find(link => link.toId == to.id)
     return link?.data
 }
+
+describe('Graferse class', () => {
+    test('creating locks', () => {
+        const creator = new Graferse()
+        expect(creator.locks).toEqual([])
+        expect(creator.linkLocks).toEqual([])
+
+        const lock1 = creator.makeLock()
+        expect(lock1).toBeInstanceOf(Lock)
+        expect(creator.locks).toEqual([lock1])
+        expect(creator.linkLocks).toEqual([])
+
+        const linkLock1 = creator.makeLinkLock()
+        expect(linkLock1).toBeInstanceOf(LinkLock)
+        expect(creator.locks).toEqual([lock1])
+        expect(creator.linkLocks).toEqual([linkLock1])
+    })
+})
 
 describe('no dependencies', () => {
     test('basic locking with identities', () => {
