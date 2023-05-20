@@ -224,7 +224,7 @@ function makeMakeLocker<T,U=string> (
                 creator.notifyWaiters(whoCanMoveNow)
             }
 
-            const lockNext = (currentNode: any) => {
+            const lockNext = (currentNode: U) => {
                 console.log(`┌─ Lock | ${byWhom} ${currentNode} ──`);
                 creator.lastCallCache.set(byWhom, () => lockNext(currentNode))
 

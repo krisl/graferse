@@ -1094,7 +1094,7 @@ describe('ngraph', () => {
         const lockNext = makeLocker("agent1").makePathLocker(path)((nextNodes) => {}).lockNext
 
         for (var i = 0; i < path.length; i++) {
-            lockNext(path[i].id)
+            lockNext(path[i].id as string)
         }
     })
 })
