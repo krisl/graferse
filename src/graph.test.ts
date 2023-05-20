@@ -1126,11 +1126,13 @@ describe('Components', () => {
             expect(logSpyError).toHaveBeenCalled()
         })
 
-        test('same client, different directions throws', () => {
-            const creator = new Graferse()
-            const linkLock = creator.makeLinkLock(true) // is bidirectional
-            expect(      linkLock.requestLock('test', 'up')).toEqual("FREE")
-            expect(() => linkLock.requestLock('test', 'down')).toThrow()
+        describe('Locking in both directions', () => {
+            test.only('single owner can lock both directions', () => {
+                const creator = new Graferse()
+                const linkLock = creator.makeLinkLock(true) // is bidirectional
+                expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
+                expect(linkLock.requestLock('test', 'down')).toEqual("FREE")
+            })
         })
     })
 })

@@ -74,11 +74,8 @@ class LinkLock {
             return "FREE"
         }
 
-        // already locked by me, just to quieten warning from Lock class intended for nodes
-        // ie console.warn("Why are you locking your own node?", {byWhom})
+        // already locked by me
         if (this._lock.isLocked(byWhom)) {
-            if (this._direction !== direction)
-                throw new Error("Already locked but direction mismatch")
             return "FREE"
         }
 
