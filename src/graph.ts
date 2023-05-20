@@ -104,7 +104,15 @@ class LinkLock {
         return "CON"
     }
 
-    unlock (byWhom: string) {
+    unlock (byWhom: string, direction?: string) {
+        if (direction) {
+            if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
+                this._directions.delete(direction)
+                // if we still are holding one direction, dont release lock
+                if (this._directions.size > 0)
+                    return
+            }
+        }
         return this._lock.unlock(byWhom)
     }
 
