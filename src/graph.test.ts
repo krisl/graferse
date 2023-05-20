@@ -1127,11 +1127,18 @@ describe('Components', () => {
         })
 
         describe('Locking in both directions', () => {
-            test.only('single owner can lock both directions', () => {
+            test('single owner can lock both directions', () => {
                 const creator = new Graferse()
                 const linkLock = creator.makeLinkLock(true) // is bidirectional
-                expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('test', 'down')).toEqual("FREE")
+                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
+                expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
+            })
+            test('owner cannot lock both directions if multiple owners', () => {
+                const creator = new Graferse()
+                const linkLock = creator.makeLinkLock(true) // is bidirectional
+                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
+                expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
+                expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
             })
         })
     })
