@@ -206,12 +206,13 @@ function makeMakeLocker<T,U=string> (
                 // may need a cangetlock? function.  prepare lock?
                 const linkLock = getLockForLink(subpath[0], subpath[1])
                 const desc = `from ${identity(subpath[0])} to ${identity(subpath[1])}`
+                const fromNodeId = JSON.stringify(identity(subpath[0]))
                 if (!linkLock.isBidirectional) {
                     console.debug(`  ok - ${desc} not bidirectional`)
                     return true
                 }
 
-                const linkLockResult = linkLock.requestLock(byWhom, desc)
+                const linkLockResult = linkLock.requestLock(byWhom, fromNodeId)
 
                 // if it failed to lock because of opposing direction
                 if (linkLockResult === "CON") {
@@ -220,7 +221,7 @@ function makeMakeLocker<T,U=string> (
                 }
 
                 if (!tryLockAllBidirectionalEdges(subpath.slice(1))) {
-                    linkLock.unlock(byWhom)
+                    linkLock.unlock(byWhom, fromNodeId)
                     return false
                 }
 
@@ -265,8 +266,10 @@ function makeMakeLocker<T,U=string> (
                 // go through path from start to last node to be locked
                 for (let i = 0; i <= lastToLock; i++) {
                     // unlock all edges before current position
-                    if (i > 0 && i <= currentIdx)
-                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom))
+                    if (i > 0 && i <= currentIdx) {
+                        const fromNodeId = JSON.stringify(identity(path[i-1]))
+                        whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
+                    }
 
                     // if its behind the firstToLock, unlock it
                     if (i < firstToLock) {
