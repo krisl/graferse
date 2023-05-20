@@ -54,6 +54,11 @@ class Lock {
             ? this.lockedBy.has(byWhom)
             : this.lockedBy.size > 0
     }
+
+    isLockedByOtherThan(byWhom: string) {
+        return this.lockedBy.size > 1
+          || (this.lockedBy.size === 1 && !this.isLocked(byWhom))
+    }
 }
 
 type LinkLockType = "FREE" | "PRO" | "CON"
