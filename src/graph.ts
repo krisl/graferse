@@ -157,7 +157,7 @@ class Graferse
         for(const lockGroup of this.lockGroups) {
             if (lockGroup.includes(lock)) {
                 const lockedNode = lockGroup.filter(l => l !== lock)
-                                            .find(l => l.isLocked() && !l.isLocked(byWhom))
+                                            .find(l => l.isLockedByOtherThan(byWhom))
                 if (lockedNode) {
                     // wait on this locked node
                     if (lockedNode.requestLock(byWhom, "lockGroup")) {
