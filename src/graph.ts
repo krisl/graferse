@@ -65,7 +65,7 @@ type LinkLockType = "FREE" | "PRO" | "CON"
 
 class LinkLock {
     private _lock: Lock = new Lock()
-    private _directions: string[] = []
+    private _directions: Set<string> = new Set()
     readonly isBidirectional: boolean
 
     constructor(isBidirectional: boolean = false) {
@@ -81,23 +81,23 @@ class LinkLock {
 
         // already locked by me
         if (this._lock.isLocked(byWhom)) {
-            if (this._directions.length === 1 && this._directions[0] !== direction) {
+            if (this._directions.size === 1 && !this._directions.has(direction)) {
                 if (this._lock.isLockedByOtherThan(byWhom))
                     return "CON"
-                this._directions.push(direction)
+                this._directions.add(direction)
             }
             return "FREE"
         }
 
         // if its locked by anyone else, in the direction we are going
-        if (this._lock.isLocked() && this._directions.length === 1 && this._directions[0] === direction) {
+        if (this._lock.isLocked() && this._directions.size === 1 && this._directions.has(direction)) {
             this._lock.forceLock(byWhom) // add ourselves to the list
             return "PRO"
         }
 
         // its not locked by anyone
-        if (this._directions.length < 2 && this._lock.requestLock(byWhom, "link from " + direction)) {
-            this._directions.push(direction)
+        if (this._lock.requestLock(byWhom, "link from " + direction)) {
+            this._directions.add(direction)
             return "FREE"
         }
 
