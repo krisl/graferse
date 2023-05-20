@@ -60,14 +60,14 @@ type LinkLockType = "FREE" | "PRO" | "CON"
 
 class LinkLock {
     private _lock: Lock = new Lock()
-    private _direction: any
+    private _direction: string = ""
     readonly isBidirectional: boolean
 
     constructor(isBidirectional: boolean = false) {
         this.isBidirectional = isBidirectional  // only relevent for edges
     }
 
-    requestLock (byWhom: string, direction: any) {
+    requestLock (byWhom: string, direction: string) {
         if (!this.isBidirectional) {
             console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
             console.warn("This will cause problems because it should stop locking here")
@@ -88,7 +88,7 @@ class LinkLock {
             return "PRO"
         }
 
-        if (this._lock.requestLock(byWhom, "link from " + JSON.stringify(direction))) {
+        if (this._lock.requestLock(byWhom, "link from " + direction)) {
             this._direction = direction
             return "FREE"
         }
