@@ -221,9 +221,7 @@ function makeMakeLocker<T,U=string> (
             }
 
             const lockNext = (currentNode: U) => {
-                console.log(`┌─ Lock | ${byWhom} ${currentNode} ──`);
-                creator.lastCallCache.set(byWhom, () => lockNext(currentNode))
-
+                console.warn("lockNext is deprecated, please use arrivedAt")
                 const currentIdx = path.findIndex(node => identity(node) === currentNode)
                 if (currentIdx === -1) {
                     console.error(`  You're claiming to be at a node not on your path`)
@@ -231,6 +229,13 @@ function makeMakeLocker<T,U=string> (
                     clearAllPathLocks()
                     return
                 }
+                arrivedAt(currentIdx)
+            }
+
+            const arrivedAt = (currentIdx: number) => {
+                console.log(`┌─ Lock | ${byWhom} ${currentIdx} ${identity(path[currentIdx])} ──`);
+                creator.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
+
 
                 const beforeCount = 0, afterCount = 1
                 const lastIdx = path.length -1
@@ -285,6 +290,7 @@ function makeMakeLocker<T,U=string> (
 
             return {
                 lockNext,
+                arrivedAt,
                 clearAllPathLocks,
             }
         }
