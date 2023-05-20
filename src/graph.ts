@@ -174,7 +174,6 @@ function makeMakeLocker<T,U=string> (
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
         identity: (x: T) => U,          // returns external node identity
-        directionIdentity: (x: T) => any = x => x, // returns an identifer representing direction
 ) {
     type NextNodes = (nextNodes: U[], remaining: number) => void
     return (byWhom: string) => {
@@ -196,7 +195,7 @@ function makeMakeLocker<T,U=string> (
                     return true
                 }
 
-                const linkLockResult = linkLock.requestLock(byWhom, directionIdentity(subpath[0]))
+                const linkLockResult = linkLock.requestLock(byWhom, desc)
 
                 // if it failed to lock because of opposing direction
                 if (linkLockResult === "CON") {

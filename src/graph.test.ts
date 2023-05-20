@@ -451,8 +451,7 @@ describe('ngraph', () => {
             creator,
             node => node.data,
             getLockForLink,
-            x => x.id as string,
-            x => x.id
+            x => x.id as string
         )
         const s1NextPaths: Array<Array<string>> = []
         const s2NextPaths: Array<Array<string>> = []
@@ -635,7 +634,7 @@ describe('ngraph', () => {
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'e').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string, d => d.id)
+        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
         var s1ForwardPath: Array<string> = []
         const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
 
