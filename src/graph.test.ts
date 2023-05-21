@@ -25,6 +25,23 @@ describe('Graferse class', () => {
         expect(creator.locks).toEqual([lock1])
         expect(creator.linkLocks).toEqual([linkLock1])
     })
+    test('lock groups', () => {
+        const creator = new Graferse()
+        const lock1 = creator.makeLock()
+        const lock2 = creator.makeLock()
+        creator.setLockGroup([lock1, lock2])
+
+        expect(lock1.requestLock("agent1", "lock1")).toBeTruthy()
+
+        // agent1 can take lock2 because its the same agent that took lock1
+        expect(creator.isLockGroupAvailable(lock2, "agent1")).toBeTruthy()
+
+        // but agent2 cannot because they belong to the same lock group
+        expect(creator.isLockGroupAvailable(lock2, "agent2")).toBeFalsy()
+
+        // when agent1 releases the lock, agent2 is returned for notification
+        expect(lock1.unlock("agent1")).toEqual(new Set(["agent2"]))
+    })
 })
 
 describe('no dependencies', () => {
