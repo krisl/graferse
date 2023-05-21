@@ -42,6 +42,34 @@ describe('Graferse class', () => {
         // when agent1 releases the lock, agent2 is returned for notification
         expect(lock1.unlock("agent1")).toEqual(new Set(["agent2"]))
     })
+    test('clearAllLocks', () => {
+        const creator = new Graferse()
+        const lock1 = creator.makeLock()
+        const lock2 = creator.makeLock()
+        const linkLock1 = creator.makeLinkLock(true)
+        const linkLock2 = creator.makeLinkLock(true)
+
+        expect(lock1.requestLock("agent1", "lock1")).toBeTruthy()
+        expect(lock2.requestLock("agent2", "lock2")).toBeTruthy()
+
+        expect(linkLock1.requestLock("agent1", "up")).toBeTruthy()
+        expect(linkLock2.requestLock("agent2", "up")).toBeTruthy()
+
+        expect(lock1.isLocked()).toBeTruthy()
+        expect(lock2.isLocked()).toBeTruthy()
+        expect(linkLock1.isLocked()).toBeTruthy()
+        expect(linkLock2.isLocked()).toBeTruthy()
+
+        // agent2 tries to obtain a taken lock
+        expect(lock1.requestLock("agent2", "lock1")).toBeFalsy()
+
+        // clearing throws, because lock1 was requested directly above
+        // and no call to lockNext exists to call again
+        expect(() => creator.clearAllLocks("agent1")).toThrow()
+
+        // but now agent2 can obtain the lock
+        expect(lock1.requestLock("agent2", "lock1")).toBeTruthy()
+    })
 })
 
 describe('no dependencies', () => {
