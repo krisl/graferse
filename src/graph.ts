@@ -185,13 +185,14 @@ class Graferse
     }
 }
 
+type NextNode<U> = { node: U, index: number }
 function makeMakeLocker<T,U=string> (
         creator: Graferse,
         getLock: (x: T) => Lock,                   // given a T, gives you a Lock
         getLockForLink: (from: T, to: T) => LinkLock,
         identity: (x: T) => U,          // returns external node identity
 ) {
-    type NextNodes = (nextNodes: U[], remaining: number) => void
+    type NextNodes = (nextNodes: NextNode<U>[], remaining: number) => void
     return (byWhom: string) => {
         const makePathLocker = (path: T[]) => (callback: NextNodes) => {
             // given an index in the path, tries to lock all bidirectional edges
@@ -263,6 +264,7 @@ function makeMakeLocker<T,U=string> (
                 const lastToLock = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
                 const whoCanMoveNow = new Set<string>()
 
+                const nextNodes: NextNode<U>[] = []
                 // go through path from start to last node to be locked
                 for (let i = 0; i <= lastToLock; i++) {
                     // unlock all edges before current position
@@ -297,12 +299,13 @@ function makeMakeLocker<T,U=string> (
                         lock.unlock(byWhom)
                         break
                     }
+                    nextNodes.push({node: identity(path[i]), index: i})
                 }
 
                 console.log({whoCanMoveNow})
                 // TODO consider not calling back with same values as last time or leave it up to clients to handle this
                 callback(
-                    path.filter(node => getLock(node).isLocked(byWhom)).map(identity),
+                    nextNodes,
                     path.length - (currentIdx +1)
                 )
 
@@ -324,4 +327,4 @@ function makeMakeLocker<T,U=string> (
 }
 
 export { makeMakeLocker, Graferse }
-export type { Lock, LinkLock }
+export type { Lock, LinkLock, NextNode }
