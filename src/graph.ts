@@ -1,3 +1,6 @@
+import makeDebug from 'debug'
+const debug = makeDebug('graferse')
+
 declare global {
     interface Set<T> {
         addAll(s: Set<T> | undefined): void
@@ -26,7 +29,7 @@ class Lock {
             return true
         }
 
-        console.log(`Resource ${what} is locked, ${byWhom} will wait`)
+        debug(`Resource ${what} is locked, ${byWhom} will wait`)
         this.waiting.add(byWhom)
         return false
     }
@@ -152,7 +155,7 @@ class Graferse
     }
 
     clearAllLocks(byWhom: string) {
-        console.log(`── clearAllLocks | ${byWhom} ──`);
+        debug(`── clearAllLocks | ${byWhom} ──`);
         const whoCanMoveNow = new Set<string>()
         for (const lock of this.locks) {
             whoCanMoveNow.addAll(lock.unlock(byWhom))
@@ -231,7 +234,7 @@ function makeMakeLocker<T,U=string> (
             }
 
             const clearAllPathLocks = () => {
-                console.log(`── clearAllPathLocks | ${byWhom} ──`);
+                debug(`── clearAllPathLocks | ${byWhom} ──`);
                 const whoCanMoveNow = new Set<string>()
                 for (let i = 0; i < path.length; i++) {
                     whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
@@ -254,7 +257,7 @@ function makeMakeLocker<T,U=string> (
             }
 
             const arrivedAt = (currentIdx: number) => {
-                console.log(`┌─ Lock | ${byWhom} ${currentIdx} ${identity(path[currentIdx])} ──`);
+                debug(`┌─ Lock | ${byWhom} ${currentIdx} ${identity(path[currentIdx])} ──`);
                 creator.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
 
 
@@ -276,13 +279,13 @@ function makeMakeLocker<T,U=string> (
                     // if its behind the firstToLock, unlock it
                     if (i < firstToLock) {
                         whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
-                        console.log(`unlocked ${identity(path[i])} for ${byWhom}`)
+                        debug(`unlocked ${identity(path[i])} for ${byWhom}`)
                         continue
                     }
 
                     const lock = getLock(path[i])
                     if (!creator.isLockGroupAvailable(lock, byWhom)) {
-                        console.warn("Could not obtain lock, group is locked")
+                        debug("Could not obtain lock, group is locked")
                         break;
                     }
                     /* Lock from firstToLock to lastToLock */
@@ -290,7 +293,7 @@ function makeMakeLocker<T,U=string> (
                     if (!lock.requestLock(byWhom, JSON.stringify(identity(path[i])))) {
                         break;
                     }
-                    console.log("  trying to lock bidir edges from node %o", identity(path[i]))
+                    debug("  trying to lock bidir edges from node %o", identity(path[i]))
                     // TODO consider returning the length of obtained edge locks
                     // if its > 0, even though further failed, allow the againt to retain the node lock
                     // so we can enter corridors as far as we can and wait there
@@ -302,7 +305,7 @@ function makeMakeLocker<T,U=string> (
                     nextNodes.push({node: identity(path[i]), index: i})
                 }
 
-                console.log({whoCanMoveNow})
+                debug({whoCanMoveNow})
                 // TODO consider not calling back with same values as last time or leave it up to clients to handle this
                 callback(
                     nextNodes,
@@ -310,7 +313,7 @@ function makeMakeLocker<T,U=string> (
                 )
 
                 creator.notifyWaiters(whoCanMoveNow)
-                console.log('└────\n')
+                debug('└────\n')
             }
 
             return {
