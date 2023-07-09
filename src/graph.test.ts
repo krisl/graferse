@@ -185,19 +185,19 @@ describe('no dependencies', () => {
         expect(forwardPath1).toEqual([])
         expect(forwardPath2).toEqual([])
 
-        test1At.lockNext(nodeA)
+        test1At.arrivedAt(path1.indexOf(nodeA))
         expect(forwardPath1).toEqual([{index: 0, node: nodeA}, {index: 1, node: nodeB}])
         expect(forwardPath2).toEqual([])
 
-        test2At.lockNext(nodeX)
+        test2At.arrivedAt(path2.indexOf(nodeX))
         expect(forwardPath1).toEqual([{index: 0, node: nodeA}, {index: 1, node: nodeB}])
         expect(forwardPath2).toEqual([{index: 0, node: nodeX}]) // only nodeX because nodeB is locked
 
-        test1At.lockNext(nodeB)
+        test1At.arrivedAt(path1.indexOf(nodeB))
         expect(forwardPath1).toEqual([{index: 1, node: nodeB}, {index: 2, node: nodeC}])
         expect(forwardPath2).toEqual([{index: 0, node: nodeX}]) // only nodeX because nodeB is still locked
 
-        test1At.lockNext(nodeC)
+        test1At.arrivedAt(path1.indexOf(nodeC))
         expect(forwardPath1).toEqual([{index: 2, node: nodeC}])
         expect(forwardPath2).toEqual([{index: 0, node: nodeX}, {index: 1, node: nodeB}]) // nodeB is now unlocked
 
