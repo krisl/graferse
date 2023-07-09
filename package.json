@@ -14,6 +14,10 @@
     "test": "jest",
     "test:cover": "jest --coverage"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krisl/graferse"
+  },
   "prepublishOnly": "npm test && npm run lint",
   "preversion": "npm run lint",
   "keywords": [],
