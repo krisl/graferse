@@ -1250,4 +1250,50 @@ describe('Exceptions', () => {
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
     })
+    test('arrivedAt bounds', () => {
+        const getLockForLink = (from: Lock, to: Lock) => {
+            return creator.makeLinkLock()
+        }
+        const creator = new Graferse()
+        const nodeA = creator.makeLock()
+        const nodeB = creator.makeLock()
+        const nodeC = creator.makeLock()
+        const nodeX = creator.makeLock()
+
+        const makeLocker = makeMakeLocker<Lock,Lock>(
+            creator,
+            node => node,
+            (from, to) => creator.makeLinkLock(),
+            node => node)
+
+        const test1Path = [nodeA, nodeB, nodeC]
+        var forwardPath: Array<NextNode<Lock>> = []
+        const test1At = makeLocker("test1").makePathLocker(test1Path)(
+            (nextNodes) => { forwardPath = nextNodes }
+        )
+
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([])
+
+        test1At.arrivedAt(-2)
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([])
+
+        test1At.arrivedAt(-1)
+        // first node is locked because the next node is pos 0
+        expect(nodeA.isLocked()).toBeTruthy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
+        expect(forwardPath).toEqual([{index: 0, node: nodeA}])
+
+        test1At.arrivedAt(3)
+        // and all nodes are unlocked again
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeC.isLocked()).toBeFalsy()
+    })
 })
