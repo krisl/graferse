@@ -1170,6 +1170,10 @@ describe('Components', () => {
             expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
             expect(logSpyWarn).toHaveBeenCalled()
             expect(logSpyError).toHaveBeenCalled()
+
+            // needed for bun until resetAllMocks is available
+            logSpyWarn.mockReset()
+            logSpyError.mockReset()
         })
 
         describe('Locking in both directions', () => {
@@ -1269,6 +1273,9 @@ describe('Exceptions', () => {
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
+
+        // needed for bun until resetAllMocks is available
+        logSpyError.mockReset()
     })
     test('arrivedAt bounds', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
