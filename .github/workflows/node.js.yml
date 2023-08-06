@@ -35,6 +35,14 @@ jobs:
         flag-name: node-${{ join(matrix.*, '-') }}
         parallel: true
 
+  build-bun:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+    - run: bun test
+
   finish:
     needs: build
     if: ${{ always() }}
