@@ -1150,11 +1150,6 @@ describe('ngraph', () => {
 })
 
 describe('Components', () => {
-    beforeEach(() => {
-        // reset counts of calls using spyOn
-        jest.clearAllMocks()
-    })
-
     describe('Lock', () => {
         test('locking twice', () => {
             const creator = new Graferse()
