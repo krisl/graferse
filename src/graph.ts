@@ -46,8 +46,13 @@ class Lock {
     }
 
     unlock (byWhom: string) {
-        this.waiting.delete(byWhom)
-        this.lockedBy.delete(byWhom)
+        if (this.lockedBy.delete(byWhom)) {
+          debug(`unlocked ${this.id} for ${byWhom}`)
+        }
+
+        if (this.waiting.delete(byWhom)) {
+          debug(`stopped waiting ${this.id} for ${byWhom}`)
+        }
 
         if (!this.isLocked()) {
             // no guarentee that this resource is obtainable by any of the waiters
@@ -301,7 +306,6 @@ class Graferse<T,U=string>
                         // if its behind the firstToLock, unlock it
                         if (i < firstToLock) {
                             whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
-                            debug(`unlocked ${this.identity(path[i])} for ${byWhom}`)
                             continue
                         }
 
