@@ -41,6 +41,7 @@ class Lock {
     }
 
     unlock (byWhom: string) {
+        this.waiting.delete(byWhom)
         this.lockedBy.delete(byWhom)
 
         if (!this.isLocked()) {
