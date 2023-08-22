@@ -127,13 +127,20 @@ class LinkLock {
 
 type NextNode<U> = { node: U, index: number }
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
-class Graferse
+class Graferse<T,U=string>
 {
     locks: Lock[] = []
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
     listeners: Array<() => void> = []
+    identity: (x: T) => U
+
+    constructor(
+        identity: (x: T) => U,          // returns external node identity
+    ) {
+        this.identity = identity
+    }
 
     makeLock() {
         const lock = new Lock()
@@ -201,10 +208,9 @@ class Graferse
         return true
     }
 
-    makeMakeLocker<T,U=string> (
+    makeMakeLocker (
             getLock: (x: T) => Lock,                   // given a T, gives you a Lock
             getLockForLink: (from: T, to: T) => LinkLock,
-            identity: (x: T) => U,          // returns external node identity
     ) {
         type NextNodes = (nextNodes: NextNode<U>[], remaining: number) => void
         return (byWhom: string) => {
@@ -213,15 +219,15 @@ class Graferse
                 // till the last node in the path
                 // returns false if first edge fails, otherwise returns true
                 // as we can proceed some of the way in the same direction
-                function tryLockAllBidirectionalEdges(subpath: T[]) {
+                const tryLockAllBidirectionalEdges = (subpath: T[]) => {
                     if (subpath.length < 2) {
                         return true
                     }
                     // TODO will these locks and unlocks trigger waiters?
                     // may need a cangetlock? function.  prepare lock?
                     const linkLock = getLockForLink(subpath[0], subpath[1])
-                    const desc = `from ${identity(subpath[0])} to ${identity(subpath[1])}`
-                    const fromNodeId = JSON.stringify(identity(subpath[0]))
+                    const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
+                    const fromNodeId = JSON.stringify(this.identity(subpath[0]))
                     if (!linkLock.isBidirectional) {
                         console.debug(`  ok - ${desc} not bidirectional`)
                         return true
@@ -257,10 +263,10 @@ class Graferse
 
                 const lockNext = (currentNode: U) => {
                     console.warn("lockNext is deprecated, please use arrivedAt")
-                    const currentIdx = path.findIndex(node => identity(node) === currentNode)
+                    const currentIdx = path.findIndex(node => this.identity(node) === currentNode)
                     if (currentIdx === -1) {
                         console.error(`  You're claiming to be at a node not on your path`)
-                        console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(identity))}`)
+                        console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(this.identity))}`)
                         clearAllPathLocks()
                         return
                     }
@@ -268,7 +274,7 @@ class Graferse
                 }
 
                 const arrivedAt = (currentIdx: number) => {
-                    debug(`┌─ Lock | ${byWhom} ${currentIdx} ${identity(path[currentIdx])} ──`);
+                    debug(`┌─ Lock | ${byWhom} ${currentIdx} ${this.identity(path[currentIdx])} ──`);
                     this.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
 
 
@@ -283,14 +289,14 @@ class Graferse
                     for (let i = 0; i <= lastToLock; i++) {
                         // unlock all edges before current position
                         if (i > 0 && i <= currentIdx) {
-                            const fromNodeId = JSON.stringify(identity(path[i-1]))
+                            const fromNodeId = JSON.stringify(this.identity(path[i-1]))
                             whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
                         }
 
                         // if its behind the firstToLock, unlock it
                         if (i < firstToLock) {
                             whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
-                            debug(`unlocked ${identity(path[i])} for ${byWhom}`)
+                            debug(`unlocked ${this.identity(path[i])} for ${byWhom}`)
                             continue
                         }
 
@@ -301,10 +307,10 @@ class Graferse
                         }
                         /* Lock from firstToLock to lastToLock */
                         // if failed to obtain lock, dont try to get any more
-                        if (!lock.requestLock(byWhom, JSON.stringify(identity(path[i])))) {
+                        if (!lock.requestLock(byWhom, JSON.stringify(this.identity(path[i])))) {
                             break;
                         }
-                        debug("  trying to lock bidir edges from node %o", identity(path[i]))
+                        debug("  trying to lock bidir edges from node %o", this.identity(path[i]))
                         // TODO consider returning the length of obtained edge locks
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
@@ -313,7 +319,7 @@ class Graferse
                             lock.unlock(byWhom)
                             break
                         }
-                        nextNodes.push({node: identity(path[i]), index: i})
+                        nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 
                     debug({whoCanMoveNow})
