@@ -14,8 +14,13 @@ Set.prototype.addAll = function(s) {
 }
 
 class Lock {
+    id: string
     lockedBy: Set<string> = new Set()
     waiting: Set<string> = new Set()
+
+    constructor(id: string) {
+        this.id = id
+    }
 
     requestLock (byWhom: string, what: string) {
         this.waiting.delete(byWhom)
@@ -68,7 +73,7 @@ class Lock {
 type LinkLockType = "FREE" | "PRO" | "CON"
 
 class LinkLock {
-    private _lock: Lock = new Lock()
+    private _lock: Lock = new Lock("linklock")
     private _directions: Set<string> = new Set()
     readonly isBidirectional: boolean
 
@@ -142,8 +147,8 @@ class Graferse<T,U=string>
         this.identity = identity
     }
 
-    makeLock() {
-        const lock = new Lock()
+    makeLock(id: string) {
+        const lock = new Lock(id)
         this.locks.push(lock)
         return lock
     }

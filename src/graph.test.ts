@@ -15,7 +15,7 @@ describe('Graferse class', () => {
         expect(creator.locks).toEqual([])
         expect(creator.linkLocks).toEqual([])
 
-        const lock1 = creator.makeLock()
+        const lock1 = creator.makeLock('lock1')
         expect(typeof lock1).toBe("object")
         expect(creator.locks).toEqual([lock1])
         expect(creator.linkLocks).toEqual([])
@@ -27,8 +27,8 @@ describe('Graferse class', () => {
     })
     test('lock groups', () => {
         const creator = new Graferse(node => node)
-        const lock1 = creator.makeLock()
-        const lock2 = creator.makeLock()
+        const lock1 = creator.makeLock('lock1')
+        const lock2 = creator.makeLock('lock2')
         creator.setLockGroup([lock1, lock2])
 
         expect(lock1.requestLock("agent1", "lock1")).toBeTruthy()
@@ -44,8 +44,8 @@ describe('Graferse class', () => {
     })
     test('clearAllLocks', () => {
         const creator = new Graferse(node => node)
-        const lock1 = creator.makeLock()
-        const lock2 = creator.makeLock()
+        const lock1 = creator.makeLock('lock1')
+        const lock2 = creator.makeLock('lock2')
         const linkLock1 = creator.makeLinkLock(true)
         const linkLock2 = creator.makeLinkLock(true)
 
@@ -80,13 +80,13 @@ describe('no dependencies', () => {
         const creator = new Graferse<Lock>(
             lock => lockToString.get(lock) as string// what we are going to give current nodes in
         )
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
         const path1 = [nodeA, nodeB, nodeC]
 
-        const nodeX = creator.makeLock()
-        const nodeY = creator.makeLock()
+        const nodeX = creator.makeLock('nodeX')
+        const nodeY = creator.makeLock('nodeY')
         const path2 = [nodeX, nodeB, nodeY]
 
         const lockToString = new Map<Lock,string>()
@@ -159,13 +159,13 @@ describe('no dependencies', () => {
             return creator.makeLinkLock()
         }
         const creator = new Graferse<Lock,Lock>(node => node)
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
         const path1 = [nodeA, nodeB, nodeC]
 
-        const nodeX = creator.makeLock()
-        const nodeY = creator.makeLock()
+        const nodeX = creator.makeLock('nodeX')
+        const nodeY = creator.makeLock('nodeY')
         const path2 = [nodeX, nodeB, nodeY]
 
 
@@ -230,12 +230,13 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
@@ -283,12 +284,13 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
@@ -331,12 +333,13 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
@@ -370,10 +373,11 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
 
         // A
         //  \
@@ -382,9 +386,9 @@ describe('ngraph', () => {
         //   ^
         //  /
         // B
-        graph.addLink('a', 'c', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
-        graph.addLink('c', 'd', creator.makeLock())
+        graph.addLink('a', 'c', creator.makeLock('ac'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
+        graph.addLink('c', 'd', creator.makeLock('cd'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'd').reverse()
@@ -448,15 +452,16 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
         const creator = new Graferse<Node<Lock>>(x => x.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeH = graph.addNode('h', creator.makeLock())
-        const nodeI = graph.addNode('i', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeH = makeNode('h')
+        const nodeI = makeNode('i')
 
         // B                                        H
         //  \                                       ^
@@ -653,11 +658,12 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
 
         // A <----> B <----> C <----> D
         //                    \
@@ -765,12 +771,13 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
 
         //                      F
         //                     ^
@@ -868,15 +875,16 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeY = graph.addNode('y', creator.makeLock())
-        const nodeZ = graph.addNode('z', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeY = makeNode('y')
+        const nodeZ = makeNode('z')
 
         const lockCD = creator.makeLinkLock(true)
         const lockDE = creator.makeLinkLock(true)
@@ -968,15 +976,16 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeY = graph.addNode('y', creator.makeLock())
-        const nodeZ = graph.addNode('z', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeY = makeNode('y')
+        const nodeZ = makeNode('z')
 
         const lockCD = creator.makeLinkLock(true)
         const lockDE = creator.makeLinkLock(true)
@@ -1125,13 +1134,14 @@ describe('ngraph', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id as string)
 
-        graph.addNode('a', creator.makeLock())
-        graph.addNode('b', creator.makeLock())
-        graph.addNode('c', creator.makeLock())
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
-        graph.addLink('c', 'b', creator.makeLock())
-        graph.addLink('b', 'a', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
+        graph.addLink('c', 'b', creator.makeLock('cb'))
+        graph.addLink('b', 'a', creator.makeLock('ba'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
@@ -1149,7 +1159,7 @@ describe('Components', () => {
     describe('Lock', () => {
         test('locking twice', () => {
             const creator = new Graferse(node => node)
-            const lock = creator.makeLock()
+            const lock = creator.makeLock('lock')
             expect(lock.requestLock('test', 'abc')).toBeTruthy()
             expect(lock.requestLock('test', 'def')).toBeTruthy()
         })
@@ -1235,10 +1245,10 @@ describe('Exceptions', () => {
             return creator.makeLinkLock()
         }
         const creator = new Graferse<Lock,Lock>(node => node)
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
-        const nodeX = creator.makeLock()
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
+        const nodeX = creator.makeLock('nodeX')
 
         const makeLocker = creator.makeMakeLocker(
             node => node,
@@ -1276,10 +1286,10 @@ describe('Exceptions', () => {
             return creator.makeLinkLock()
         }
         const creator = new Graferse<Lock,Lock>(node => node)
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
-        const nodeX = creator.makeLock()
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
+        const nodeX = creator.makeLock('nodeX')
 
         const makeLocker = creator.makeMakeLocker(
             node => node,
