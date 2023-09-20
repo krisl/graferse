@@ -96,11 +96,8 @@ class LinkLock {
         // already locked by me
         if (this._lock.isLocked(byWhom)) {
             if (this._directions.size === 1 && !this._directions.has(direction)) {
-                if (this._lock.isLockedByOtherThan(byWhom)) {
-                    debug(`Resource 'link from ${direction}' is locked, ${byWhom} will wait`)
-                    this._lock.waiting.add(byWhom)
+                if (this._lock.isLockedByOtherThan(byWhom))
                     return "CON"
-                }
                 this._directions.add(direction)
             }
             return "FREE"
