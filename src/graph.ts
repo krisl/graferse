@@ -123,6 +123,7 @@ class LinkLock {
         // if its locked by anyone else, in the direction we are going
         if (this._lock.isLocked() && this._directions.size === 1 && this._directions.has(direction)) {
             this._lock.forceLock(byWhom) // add ourselves to the list
+            this._lock.waiting.delete(byWhom)
             return "PRO"
         }
 
