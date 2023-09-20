@@ -1195,6 +1195,7 @@ describe('Components', () => {
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
+                expect(linkLock.isWaiting('agent1')).toBeTruthy()
             })
             test('agent cannot lock if both directions already locked', () => {
                 const creator = new Graferse<Node>(node => node.id)
