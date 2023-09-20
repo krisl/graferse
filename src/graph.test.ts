@@ -1202,9 +1202,11 @@ describe('Components', () => {
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
                 linkLock.unlock('agent1', 'up')
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 linkLock.unlock('agent1', 'down')

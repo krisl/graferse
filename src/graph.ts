@@ -104,6 +104,10 @@ class LinkLock {
         }
     }
 
+    isWaiting (who: string) {
+        return this._lock.waiting.has(who)
+    }
+
     requestLock (byWhom: string, direction: string): LinkLockType {
         this.check(direction)
         // already locked by me
