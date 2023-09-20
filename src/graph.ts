@@ -86,7 +86,6 @@ type LinkLockType = "FREE" | "PRO" | "CON"
 class LinkLock {
     private _lock: Lock = new Lock("linklock")
     private _directions: Set<string> = new Set()
-    readonly isBidirectional: boolean = true
 
     getDetails() {
         return {
@@ -144,7 +143,6 @@ class LinkLock {
 }
 
 class OnewayLinkLock extends LinkLock {
-    readonly isBidirectional = false
     requestLock (byWhom: string, direction: string): LinkLockType {
         console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
         console.warn("This will cause problems because it should stop locking here")
@@ -258,7 +256,7 @@ class Graferse<T,U=string>
                     const linkLock = getLockForLink(subpath[0], subpath[1])
                     const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
                     const fromNodeId = stringify(this.identity(subpath[0]))
-                    if (!linkLock.isBidirectional) {
+                    if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
                         return true
                     }
