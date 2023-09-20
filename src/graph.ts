@@ -84,81 +84,104 @@ class Lock {
 type LinkLockType = "FREE" | "PRO" | "CON"
 
 class LinkLock {
-    private _lock: Lock = new Lock("linklock")
-    private _directions: Set<string> = new Set()
-    private _allowed_directions: Set<string>
+    private _lockers = new Map<string, Set<string>>()
+    private _waiters = new Map<string, Set<string>>()
+    private _otherdir = new Map<string, string>()
 
     check (direction: string) {
-        if (!this._allowed_directions.has(direction))
-            throw new Error(`no such direction ${direction}`)
+        if (!this._waiters.get(direction))
+            throw new Error(`no such wait direction ${direction}`)
+        if (!this._lockers.get(direction))
+            throw new Error(`no such lock direction ${direction}`)
+        if (!this._otherdir.get(direction))
+            throw new Error(`no such other direction ${direction}`)
     }
 
-    constructor (from: string, to: string) {
-        this._allowed_directions = new Set([from, to])
+    //isWaiting (who: string, direction: string) {
+    //    check(direction)
+    //    return this._waiters.get(direction).has(who)
+    //}
+
+    isWaiting (who: string) {
+        return Array.from(this._otherdir.keys()).some(dir => {
+            const waiters = this._waiters.get(dir)
+            return waiters?.has(who)
+        })
     }
 
     getDetails() {
         return {
-            directions: this._directions,
-            who: this._lock.lockedBy,
+            lockers: this._lockers,
+            waiters: this._waiters,
         }
     }
 
-    isWaiting (who: string) {
-        return this._lock.waiting.has(who)
+    constructor (to: string, from: string) {
+        this._lockers.set(to, new Set<string>())
+        this._lockers.set(from, new Set<string>())
+
+        this._waiters.set(to, new Set<string>())
+        this._waiters.set(from, new Set<string>())
+
+        this._otherdir.set(to, from)
+        this._otherdir.set(from, to)
     }
 
     requestLock (byWhom: string, direction: string): LinkLockType {
         this.check(direction)
-        // already locked by me
-        if (this._lock.isLocked(byWhom)) {
-            if (this._directions.size === 1 && !this._directions.has(direction)) {
-                if (this._lock.isLockedByOtherThan(byWhom)) {
-                    debug(`Resource 'link from ${direction}' is locked, ${byWhom} will wait`)
-                    this._lock.waiting.add(byWhom)
-                    return "CON"
-                }
-                this._directions.add(direction)
-            }
+
+        // I already have it locked in this direction
+        const lockers = this._lockers.get(direction)
+        if (!lockers) throw new Error("no lockers!")
+        if (lockers.has(byWhom))
             return "FREE"
+
+        // No one except me has it locked in the other direction
+        const against = this._lockers.get(this._otherdir.get(direction) as string) || new Set()
+        if (against.size === 0 || (against.size === 1 && against.has(byWhom))) {
+            lockers.add(byWhom)
+            return lockers.size > 1
+                ? "PRO"
+                : "FREE"
         }
 
-        // if its locked by anyone else, in the direction we are going
-        if (this._lock.isLocked() && this._directions.size === 1 && this._directions.has(direction)) {
-            this._lock.forceLock(byWhom) // add ourselves to the list
-            this._lock.waiting.delete(byWhom)
-            return "PRO"
-        }
-
-        // its not locked by anyone
-        if (this._lock.requestLock(byWhom, "link from " + direction)) {
-            this._directions.add(direction)
-            return "FREE"
-        }
+        debug(`Resource 'link from ${direction}' is locked, ${byWhom} should wait`)
+        this._waiters.get(direction)?.add(byWhom)
 
         return "CON"
     }
 
     unlock (byWhom: string, direction?: string) {
-        if (direction) this.check(direction)
-        // if its locked only by a single robot
-        if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
-            if (direction) {
-                this._directions.delete(direction)
+        const dirsToUnlock = Array
+            .from(this._otherdir.keys())
+            .filter(dir => !direction || dir === direction)
 
-                // if we still are holding one direction, dont release lock
-                if (this._directions.size > 0)
-                    return
-            } else {
-                this._directions.clear()
-            }
-        }
+        dirsToUnlock.forEach(dir => this._lockers.get(dir)?.delete(byWhom))
 
-        return this._lock.unlock(byWhom)
+        const waiters = new Set<string>()
+
+        dirsToUnlock.forEach(dir => {
+            const otherdirwaiters = this._waiters.get(this._otherdir.get(dir) as string)
+            otherdirwaiters?.forEach(waiter => {
+                const tmp = new Set(this._lockers.get(dir))
+                tmp.delete(waiter)
+                if (tmp.size === 0) {
+                    waiters.add(waiter)
+                    otherdirwaiters.delete(waiter)
+                }
+            })
+        })
+
+        return waiters
     }
 
     isLocked(byWhom?: string) {
-        return this._lock.isLocked(byWhom)
+        return Array.from(this._otherdir.keys()).some(dir => {
+            const lockers = this._lockers.get(dir) as Set<string>
+            return byWhom
+                ? lockers.has(byWhom)
+                : lockers.size > 0
+        })
     }
 }
 
