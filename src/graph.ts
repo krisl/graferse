@@ -86,11 +86,7 @@ type LinkLockType = "FREE" | "PRO" | "CON"
 class LinkLock {
     private _lock: Lock = new Lock("linklock")
     private _directions: Set<string> = new Set()
-    readonly isBidirectional: boolean
-
-    constructor(isBidirectional: boolean = false) {
-        this.isBidirectional = isBidirectional  // only relevent for edges
-    }
+    readonly isBidirectional: boolean = true
 
     getDetails() {
         return {
@@ -99,13 +95,7 @@ class LinkLock {
         }
     }
 
-    requestLock (byWhom: string, direction: string) {
-        if (!this.isBidirectional) {
-            console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
-            console.warn("This will cause problems because it should stop locking here")
-            return "FREE"
-        }
-
+    requestLock (byWhom: string, direction: string): LinkLockType {
         // already locked by me
         if (this._lock.isLocked(byWhom)) {
             if (this._directions.size === 1 && !this._directions.has(direction)) {
@@ -153,6 +143,15 @@ class LinkLock {
     }
 }
 
+class OnewayLinkLock extends LinkLock {
+    readonly isBidirectional = false
+    requestLock (byWhom: string, direction: string): LinkLockType {
+        console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
+        console.warn("This will cause problems because it should stop locking here")
+        return "FREE"
+    }
+}
+
 type NextNode<U> = { node: U, index: number }
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 class Graferse<T,U=string>
@@ -177,7 +176,10 @@ class Graferse<T,U=string>
     }
 
     makeLinkLock(isBidirectional: boolean = false) {
-        const linkLock = new LinkLock(isBidirectional)
+        const linkLock = isBidirectional
+            ? new LinkLock()
+            : new OnewayLinkLock()
+
         this.linkLocks.push(linkLock)
         return linkLock
     }
