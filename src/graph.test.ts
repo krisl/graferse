@@ -1165,7 +1165,7 @@ describe('Components', () => {
         })
     })
 
-    describe('LinkLock', () => {
+    describe.only('LinkLock', () => {
         test('locking when directed edge', () => {
             const logSpyWarn = jest.spyOn(console, 'warn').mockImplementation()
             const logSpyError = jest.spyOn(console, 'error').mockImplementation()
@@ -1182,7 +1182,7 @@ describe('Components', () => {
             logSpyError.mockReset()
         })
 
-        describe.only('Locking in both directions', () => {
+        describe('Locking in both directions', () => {
             test('single owner can lock both directions', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
