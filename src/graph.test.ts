@@ -1182,7 +1182,7 @@ describe('Components', () => {
             logSpyError.mockReset()
         })
 
-        describe('Locking in both directions', () => {
+        describe.only('Locking in both directions', () => {
             test('single owner can lock both directions', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
@@ -1205,12 +1205,12 @@ describe('Components', () => {
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
                 expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
-                linkLock.unlock('agent1', 'up')
+                expect(linkLock.unlock('agent1', 'up')).toEqual(new Set())
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
                 expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                linkLock.unlock('agent1', 'down')
+                expect(linkLock.unlock('agent1', 'down')).toEqual(new Set(["agent2"]))
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
                 expect(linkLock.isWaiting('agent2')).toBeFalsy()
             })
