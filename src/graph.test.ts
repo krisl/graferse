@@ -1156,6 +1156,73 @@ describe('ngraph', () => {
             lockNext.arrivedAt(i)
         }
     })
+    test('agent encountered on bidir path with reversal', () => {
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
+
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+
+        // A ----> B <----> C
+        //         |
+        //         v 
+        //         D
+
+        const lockAB = creator.makeLinkLock('a', 'b', false)
+        const lockBC = creator.makeLinkLock('b', 'c', true)
+        const lockCD = creator.makeLinkLock('b', 'd', false)
+
+        const linkAB = graph.addLink('a', 'b', lockAB)
+        const linkBC = graph.addLink('b', 'c', lockBC)
+        const linkBD = graph.addLink('b', 'd', lockCD)
+
+        const linkDB = graph.addLink('d', 'b', lockCD)
+        const linkCB = graph.addLink('c', 'b', lockBC)
+        const linkBA = graph.addLink('b', 'a', lockAB)
+
+        const s1Path = [nodeA, nodeB, nodeC, nodeB, nodeD]
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var s1ForwardPath: Array<NextNode> = []
+        const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes })
+
+        //console.dir({nodeC}, {depth: null})
+        expect(nodeC.data.requestLock('agent2', 'static')).toBeTruthy()
+        // all nodes are unlocked
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeTruthy() // locked by static agent2
+        expect(nodeD.data.isLocked()).toBeFalsy()
+        // all links are unlocked
+        expect(linkAB.data.isLocked()).toBeFalsy()
+        expect(linkBC.data.isLocked()).toBeFalsy()
+        expect(linkBD.data.isLocked()).toBeFalsy()
+        expect(linkDB.data.isLocked()).toBeFalsy()
+        expect(linkCB.data.isLocked()).toBeFalsy()
+        expect(linkBA.data.isLocked()).toBeFalsy()
+
+        expect(s1ForwardPath).toEqual([])
+
+        s1LockNext.arrivedAt(s1Path.indexOf(nodeA))
+        // its current and next nodes are locked
+        // nodeB omitted becuase agent encountered on bidir path
+        expect(s1ForwardPath).toEqual([{index: 0, node: 'a'}/*, {index: 1, node: 'b'}*/])
+        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeTruthy() // still locked by agent2
+        expect(nodeD.data.isLocked()).toBeFalsy()
+
+        // all links are locked until path ends
+        expect(linkAB.data.isLocked()).toBeFalsy() // its oneway, never locked
+        expect(linkBC.data.isLocked()).toBeFalsy()
+        expect(linkBD.data.isLocked()).toBeFalsy()
+        expect(linkDB.data.isLocked()).toBeFalsy()
+        expect(linkCB.data.isLocked()).toBeFalsy()
+        expect(linkBA.data.isLocked()).toBeFalsy() // its oneway, never locked
+    })
 })
 
 describe('Components', () => {

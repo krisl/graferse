@@ -291,7 +291,12 @@ class Graferse<T>
 
                 let lockedNodesEncountered = 0
                 let lastEncouteredLock: Lock
+                let willReverse = false
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
+                    if (subpath.length > 2) {
+                        if (this.identity(subpath[0]) === this.identity(subpath[2]))
+                            willReverse = true
+                    }
                     if (subpath.length > 0) {
                         const lock = getLock(subpath[0])
                         if (lock.isLockedByOtherThan(byWhom)) {
@@ -318,6 +323,14 @@ class Graferse<T>
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
+                        if (willReverse && lockedNodesEncountered > 0) {
+                            // we ended our path on a bidir edge (likely a trolly location)
+                            // fail, and wait on the last lock we encountered
+                            if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
+                                throw new Error("This lock should not succeed")
+                            }
+                            return false
+                        }
                         return true
                     }
 
@@ -403,7 +416,7 @@ class Graferse<T>
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
                         lockedNodesEncountered = 0
-                        lastEncouteredLock
+                        willReverse = false
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
