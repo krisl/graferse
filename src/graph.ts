@@ -290,13 +290,19 @@ class Graferse<T>
                 // as we can proceed some of the way in the same direction
 
                 let lockedNodesEncountered = 0
+                let lastWasBidrectional = false
+                let lastEncouteredLock = undefined
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
                     if (subpath.length > 0) {
-                        if (getLock(subpath[0]).isLockedByOtherThan(byWhom)) {
+                        const lock = getLock(subpath[0])
+                        if (lock.isLockedByOtherThan(byWhom)) {
                             lockedNodesEncountered++
+                            lastEncouteredLock = lock
                         }
                     }
+                    //TODO lockedNodesEncountered needs to be checked against
                     if (subpath.length < 2) {
+                        lastWasBidrectional = true
                         return true
                     }
                     // TODO will these locks and unlocks trigger waiters?
@@ -391,6 +397,8 @@ class Graferse<T>
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
                         lockedNodesEncountered = 0
+                        lastWasBidrectional = false
+                        lastEncouteredLock = undefined
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
