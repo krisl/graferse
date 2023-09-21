@@ -126,14 +126,19 @@ class LinkLock {
     }
 
     unlock (byWhom: string, direction?: string) {
-        if (direction) {
-            if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
+        // if its locked only by a single robot
+        if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
+            if (direction) {
                 this._directions.delete(direction)
+
                 // if we still are holding one direction, dont release lock
                 if (this._directions.size > 0)
                     return
+            } else {
+                this._directions.clear()
             }
         }
+
         return this._lock.unlock(byWhom)
     }
 
