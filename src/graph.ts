@@ -86,6 +86,11 @@ type LinkLockType = "FREE" | "PRO" | "CON"
 class LinkLock {
     private _lock: Lock = new Lock("linklock")
     private _directions: Set<string> = new Set()
+    private _allowed_directions: Set<string>
+
+    constructor (to: string, from: string) {
+        this._allowed_directions = new Set([to, from])
+    }
 
     getDetails() {
         return {
@@ -175,8 +180,8 @@ class Graferse<T,U=string>
 
     makeLinkLock(isBidirectional: boolean = false) {
         const linkLock = isBidirectional
-            ? new LinkLock()
-            : new OnewayLinkLock()
+            ? new LinkLock("up", "down")
+            : new OnewayLinkLock("up", "down")
 
         this.linkLocks.push(linkLock)
         return linkLock
