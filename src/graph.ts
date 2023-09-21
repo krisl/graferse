@@ -162,19 +162,20 @@ class OnewayLinkLock extends LinkLock {
     }
 }
 
-type NextNode<U> = { node: U, index: number }
+type NextNode = { node: string, index: number }
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
-class Graferse<T,U=string>
+// where T is the type you will supply the path in
+class Graferse<T>
 {
     locks: Lock[] = []
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
     listeners: Array<() => void> = []
-    identity: (x: T) => U
+    identity: (x: T) => string
 
     constructor(
-        identity: (x: T) => U,          // returns external node identity
+        identity: (x: T) => string,          // returns external node identity
     ) {
         this.identity = identity
     }
@@ -252,7 +253,7 @@ class Graferse<T,U=string>
             getLock: (x: T) => Lock,                   // given a T, gives you a Lock
             getLockForLink: (from: T, to: T) => LinkLock,
     ) {
-        type NextNodes = (nextNodes: NextNode<U>[], remaining: number) => void
+        type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
             const makePathLocker = (path: T[]) => (callback: NextNodes) => {
                 // given an index in the path, tries to lock all bidirectional edges
@@ -302,7 +303,7 @@ class Graferse<T,U=string>
                     this.notifyWaiters(whoCanMoveNow)
                 }
 
-                const lockNext = (currentNode: U) => {
+                const lockNext = (currentNode: string) => {
                     console.warn("lockNext is deprecated, please use arrivedAt")
                     const currentIdx = path.findIndex(node => this.identity(node) === currentNode)
                     if (currentIdx === -1) {
@@ -325,7 +326,7 @@ class Graferse<T,U=string>
                     const lastToLock = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
                     const whoCanMoveNow = new Set<string>()
 
-                    const nextNodes: NextNode<U>[] = []
+                    const nextNodes: NextNode[] = []
                     // go through path from start to last node to be locked
                     for (let i = 0; i <= lastToLock; i++) {
                         // unlock all edges before current position
