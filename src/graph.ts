@@ -288,7 +288,14 @@ class Graferse<T>
                 // till the last node in the path
                 // returns false if first edge fails, otherwise returns true
                 // as we can proceed some of the way in the same direction
+
+                let lockedNodesEncountered = 0
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
+                    if (subpath.length > 0) {
+                        if (getLock(subpath[0]).isLockedByOtherThan(byWhom)) {
+                            lockedNodesEncountered++
+                        }
+                    }
                     if (subpath.length < 2) {
                         return true
                     }
@@ -383,11 +390,13 @@ class Graferse<T>
                         // TODO consider returning the length of obtained edge locks
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
+                        lockedNodesEncountered = 0
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
                             break
                         }
+                        console.log(`Encountered ${lockedNodesEncountered} locks along the way`)
                         nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 
