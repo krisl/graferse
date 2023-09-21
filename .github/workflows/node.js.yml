@@ -37,11 +37,14 @@ jobs:
 
   build-bun:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bun-version: [latest, canary]
     steps:
     - uses: actions/checkout@v3
     - uses: oven-sh/setup-bun@v1
       with:
-        bun-version: latest
+        bun-version: ${{ matrix.node-version }}
     - run: bun install
     - run: bun test
 
