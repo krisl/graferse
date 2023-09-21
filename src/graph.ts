@@ -86,6 +86,13 @@ class LinkLock {
         this.isBidirectional = isBidirectional  // only relevent for edges
     }
 
+    getDetails() {
+        return {
+            directions: this._directions,
+            who: this._lock.lockedBy,
+        }
+    }
+
     requestLock (byWhom: string, direction: string) {
         if (!this.isBidirectional) {
             console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
@@ -247,7 +254,8 @@ class Graferse<T,U=string>
 
                     // if it failed to lock because of opposing direction
                     if (linkLockResult === "CON") {
-                        console.debug(`  fail - ${desc} locked against us`)
+                        console.warn(`  fail - ${desc} locked against us`)
+                        console.warn(linkLock.getDetails())
                         return false
                     }
 
