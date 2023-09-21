@@ -13,6 +13,12 @@ Set.prototype.addAll = function(s) {
     }
 }
 
+function stringify(x: any) {
+    return typeof x === 'string'
+        ? x
+        : JSON.stringify(x)
+}
+
 class Lock {
     id: string
     lockedBy: Set<string> = new Set()
@@ -249,7 +255,7 @@ class Graferse<T,U=string>
                     // may need a cangetlock? function.  prepare lock?
                     const linkLock = getLockForLink(subpath[0], subpath[1])
                     const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
-                    const fromNodeId = JSON.stringify(this.identity(subpath[0]))
+                    const fromNodeId = stringify(this.identity(subpath[0]))
                     if (!linkLock.isBidirectional) {
                         console.debug(`  ok - ${desc} not bidirectional`)
                         return true
@@ -289,7 +295,7 @@ class Graferse<T,U=string>
                     const currentIdx = path.findIndex(node => this.identity(node) === currentNode)
                     if (currentIdx === -1) {
                         console.error(`  You're claiming to be at a node not on your path`)
-                        console.error(`  Couldnt find "${currentNode}" in ${JSON.stringify(path.map(this.identity))}`)
+                        console.error(`  Couldnt find "${currentNode}" in ${stringify(path.map(this.identity))}`)
                         clearAllPathLocks()
                         return
                     }
@@ -312,7 +318,7 @@ class Graferse<T,U=string>
                     for (let i = 0; i <= lastToLock; i++) {
                         // unlock all edges before current position
                         if (i > 0 && i <= currentIdx) {
-                            const fromNodeId = JSON.stringify(this.identity(path[i-1]))
+                            const fromNodeId = stringify(this.identity(path[i-1]))
                             whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
                         }
 
@@ -329,7 +335,7 @@ class Graferse<T,U=string>
                         }
                         /* Lock from firstToLock to lastToLock */
                         // if failed to obtain lock, dont try to get any more
-                        if (!lock.requestLock(byWhom, JSON.stringify(this.identity(path[i])))) {
+                        if (!lock.requestLock(byWhom, stringify(this.identity(path[i])))) {
                             break;
                         }
                         debug("  trying to lock bidir edges from node %o", this.identity(path[i]))
