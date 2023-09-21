@@ -1173,7 +1173,7 @@ describe('Components', () => {
             const linkLock = creator.makeLinkLock('up', 'down') // by default is directed edge
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
-            expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
+            expect(linkLock.requestLock('test', 'up')).toBeTruthy()
             expect(logSpyWarn).toHaveBeenCalled()
             expect(logSpyError).toHaveBeenCalled()
 
@@ -1186,32 +1186,32 @@ describe('Components', () => {
             test('single owner can lock both directions', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeTruthy()
             })
             test('owner cannot lock both directions if multiple owners', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent2', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeFalsy()
                 expect(linkLock.isWaiting('agent1')).toBeTruthy()
             })
             test('agent cannot lock if both directions already locked', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeTruthy()
+                expect(linkLock.requestLock('agent2', 'up')).toBeFalsy()
                 expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
                 expect(linkLock.unlock('agent1', 'up')).toEqual(new Set())
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.requestLock('agent2', 'up')).toBeFalsy()
                 expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
                 expect(linkLock.unlock('agent1', 'down')).toEqual(new Set(["agent2"]))
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
+                expect(linkLock.requestLock('agent2', 'up')).toBeTruthy()
                 expect(linkLock.isWaiting('agent2')).toBeFalsy()
             })
         })

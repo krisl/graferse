@@ -81,8 +81,6 @@ class Lock {
     }
 }
 
-type LinkLockType = "FREE" | "PRO" | "CON"
-
 class LinkLock {
     private _lockers = new Map<string, Set<string>>()
     private _waiters = new Map<string, Set<string>>()
@@ -127,28 +125,26 @@ class LinkLock {
         this._otherdir.set(from, to)
     }
 
-    requestLock (byWhom: string, direction: string): LinkLockType {
+    requestLock (byWhom: string, direction: string): boolean {
         this.check(direction)
 
         // I already have it locked in this direction
         const lockers = this._lockers.get(direction)
         if (!lockers) throw new Error("no lockers!")
         if (lockers.has(byWhom))
-            return "FREE"
+            return true
 
         // No one except me has it locked in the other direction
         const against = this._lockers.get(this._otherdir.get(direction) as string) || new Set()
         if (against.size === 0 || (against.size === 1 && against.has(byWhom))) {
             lockers.add(byWhom)
-            return lockers.size > 1
-                ? "PRO"
-                : "FREE"
+            return true
         }
 
         debug(`Resource 'link from ${direction}' is locked, ${byWhom} should wait`)
         this._waiters.get(direction)?.add(byWhom)
 
-        return "CON"
+        return false
     }
 
     unlock (byWhom: string, direction?: string) {
@@ -186,10 +182,10 @@ class LinkLock {
 }
 
 class OnewayLinkLock extends LinkLock {
-    requestLock (byWhom: string, direction: string): LinkLockType {
+    requestLock (byWhom: string, direction: string): boolean {
         console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
         console.warn("This will cause problems because it should stop locking here")
-        return "FREE"
+        return true
     }
 }
 
@@ -309,7 +305,7 @@ class Graferse<T>
                     const linkLockResult = linkLock.requestLock(byWhom, fromNodeId)
 
                     // if it failed to lock because of opposing direction
-                    if (linkLockResult === "CON") {
+                    if (!linkLockResult) {
                         console.warn(`  fail - ${desc} locked against us`)
                         console.warn(linkLock.getDetails())
                         return false
