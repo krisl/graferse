@@ -11,7 +11,7 @@ const getLockForLink = (from: Node, to: Node) => {
 
 describe('Graferse class', () => {
     test('creating locks', () => {
-        const creator = new Graferse<Node>(node => node.id as string)
+        const creator = new Graferse<Node>(node => node.id)
         expect(creator.locks).toEqual([])
         expect(creator.linkLocks).toEqual([])
 
@@ -26,7 +26,7 @@ describe('Graferse class', () => {
         expect(creator.linkLocks).toEqual([linkLock1])
     })
     test('lock groups', () => {
-        const creator = new Graferse<Node>(node => node.id as string)
+        const creator = new Graferse<Node>(node => node.id)
         const lock1 = creator.makeLock('lock1')
         const lock2 = creator.makeLock('lock2')
         creator.setLockGroup([lock1, lock2])
@@ -43,7 +43,7 @@ describe('Graferse class', () => {
         expect(lock1.unlock("agent1")).toEqual(new Set(["agent2"]))
     })
     test('clearAllLocks', () => {
-        const creator = new Graferse<Node>(node => node.id as string)
+        const creator = new Graferse<Node>(node => node.id)
         const lock1 = creator.makeLock('lock1')
         const lock2 = creator.makeLock('lock2')
         const linkLock1 = creator.makeLinkLock('up', 'down', true)
@@ -228,7 +228,7 @@ describe('no dependencies', () => {
 describe('ngraph', () => {
     test('basic locking', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -282,7 +282,7 @@ describe('ngraph', () => {
 
     test('basic locking - clearAllPathLocks', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -331,7 +331,7 @@ describe('ngraph', () => {
 
     test('unexpected queue jumping', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -371,7 +371,7 @@ describe('ngraph', () => {
 
     test('two robot mutual exclusion', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -450,7 +450,7 @@ describe('ngraph', () => {
 
     test('bidirectional corridor convoy', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(x => x.id as string)
+        const creator = new Graferse<Node<Lock>>(x => x.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -656,7 +656,7 @@ describe('ngraph', () => {
 
     test('bidirectional corridor with early exit', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -769,7 +769,7 @@ describe('ngraph', () => {
 
     test('three agents bidirectional corridor with early exit', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -873,7 +873,7 @@ describe('ngraph', () => {
         //                                   v
         //                                   Z
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -974,7 +974,7 @@ describe('ngraph', () => {
         //                                   v
         //                                   Z
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -1132,7 +1132,7 @@ describe('ngraph', () => {
     //})
     test('directed', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id as string)
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
         const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
         const nodeA = makeNode('a')
@@ -1158,7 +1158,7 @@ describe('ngraph', () => {
 describe('Components', () => {
     describe('Lock', () => {
         test('locking twice', () => {
-            const creator = new Graferse<Node>(node => node.id as string)
+            const creator = new Graferse<Node>(node => node.id)
             const lock = creator.makeLock('lock')
             expect(lock.requestLock('test', 'abc')).toBeTruthy()
             expect(lock.requestLock('test', 'def')).toBeTruthy()
@@ -1169,7 +1169,7 @@ describe('Components', () => {
         test('locking when directed edge', () => {
             const logSpyWarn = jest.spyOn(console, 'warn').mockImplementation()
             const logSpyError = jest.spyOn(console, 'error').mockImplementation()
-            const creator = new Graferse<Node>(node => node.id as string)
+            const creator = new Graferse<Node>(node => node.id)
             const linkLock = creator.makeLinkLock('up', 'down') // by default is directed edge
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
@@ -1184,20 +1184,20 @@ describe('Components', () => {
 
         describe('Locking in both directions', () => {
             test('single owner can lock both directions', () => {
-                const creator = new Graferse<Node>(node => node.id as string)
+                const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
             })
             test('owner cannot lock both directions if multiple owners', () => {
-                const creator = new Graferse<Node>(node => node.id as string)
+                const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
             })
             test('agent cannot lock if both directions already locked', () => {
-                const creator = new Graferse<Node>(node => node.id as string)
+                const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
@@ -1217,7 +1217,7 @@ describe('Components', () => {
 describe('Listeners', () => {
     test('smoke', () => {
         let listenCallbackCounter = 0
-        const creator = new Graferse<Node>(node => node.id as string)
+        const creator = new Graferse<Node>(node => node.id)
         creator.addListener(() => { listenCallbackCounter++ })
 
         // no one has been called yet

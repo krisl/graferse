@@ -162,7 +162,8 @@ class OnewayLinkLock extends LinkLock {
     }
 }
 
-type NextNode = { node: string, index: number }
+type id = string | number
+type NextNode = { node: id, index: number }
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 // where T is the type you will supply the path in
 class Graferse<T>
@@ -172,10 +173,10 @@ class Graferse<T>
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
     listeners: Array<() => void> = []
-    identity: (x: T) => string
+    identity: (x: T) => id
 
     constructor(
-        identity: (x: T) => string,          // returns external node identity
+        identity: (x: T) => id,          // returns external node identity
     ) {
         this.identity = identity
     }
