@@ -88,6 +88,11 @@ class LinkLock {
     private _directions: Set<string> = new Set()
     private _allowed_directions: Set<string>
 
+    check (direction: string) {
+        if (!this._allowed_directions.has(direction))
+            throw new Error(`no such direction ${direction}`)
+    }
+
     constructor (to: string, from: string) {
         this._allowed_directions = new Set([to, from])
     }
@@ -100,6 +105,7 @@ class LinkLock {
     }
 
     requestLock (byWhom: string, direction: string): LinkLockType {
+        this.check(direction)
         // already locked by me
         if (this._lock.isLocked(byWhom)) {
             if (this._directions.size === 1 && !this._directions.has(direction)) {
@@ -126,6 +132,7 @@ class LinkLock {
     }
 
     unlock (byWhom: string, direction?: string) {
+        if (direction) this.check(direction)
         // if its locked only by a single robot
         if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
             if (direction) {
