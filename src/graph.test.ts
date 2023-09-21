@@ -759,11 +759,11 @@ describe('ngraph', () => {
 
         s1LockNext.arrivedAt(s1Path.indexOf(nodeC))
         expect(s1ForwardPath).toEqual([{index: 2, node: 'c'}, {index: 3, node: 'e'}])
-         // agent2 obtains nodeD just before stepping off bidir lane
-        expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}])
+        expect(s2ForwardPath).toEqual([])
 
         s1LockNext.arrivedAt(s1Path.indexOf(nodeE))
         expect(s1ForwardPath).toEqual([{index: 3, node: 'e'}])
+         // agent2 obtains nodeD and C after stepping off bidir lane
         expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}, {index: 1, node: 'c'}])
     })
 
