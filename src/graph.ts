@@ -93,8 +93,8 @@ class LinkLock {
             throw new Error(`no such direction ${direction}`)
     }
 
-    constructor (to: string, from: string) {
-        this._allowed_directions = new Set([to, from])
+    constructor (from: string, to: string) {
+        this._allowed_directions = new Set([from, to])
     }
 
     getDetails() {
@@ -185,10 +185,10 @@ class Graferse<T,U=string>
         return lock
     }
 
-    makeLinkLock(isBidirectional: boolean = false) {
+    makeLinkLock(from: string, to: string, isBidirectional: boolean = false) {
         const linkLock = isBidirectional
-            ? new LinkLock("up", "down")
-            : new OnewayLinkLock("up", "down")
+            ? new LinkLock(from, to)
+            : new OnewayLinkLock(from, to)
 
         this.linkLocks.push(linkLock)
         return linkLock
