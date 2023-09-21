@@ -386,9 +386,9 @@ describe('ngraph', () => {
         //   ^
         //  /
         // B
-        graph.addLink('a', 'c', creator.makeLock('ac'))
-        graph.addLink('b', 'c', creator.makeLock('bc'))
-        graph.addLink('c', 'd', creator.makeLock('cd'))
+        graph.addLink('a', 'c', creator.makeLinkLock('a', 'c'))
+        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
+        graph.addLink('c', 'd', creator.makeLinkLock('c', 'd'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'd').reverse()
