@@ -1054,15 +1054,18 @@ describe('ngraph', () => {
 
         agent1at('e')
         expect(nextNodes1).toEqual([{index: 4, node: 'e'}, {index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 0, node: 'g'}, {index: 1, node: 'f'}])  // seems a little early to obtain nodeF
-
-        agent2at('f')
-        expect(nextNodes1).toEqual([{index: 4, node: 'e'}, {index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 1, node: 'f'}]) // cant get E because agent1 is tehre
+        expect(nextNodes2).toEqual([{index: 0, node: 'g'}])
 
         agent1at('z')
         expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 1, node: 'f'}, {index: 2, node: 'e'}]) // now we can move to E
+        expect(nextNodes2).toEqual([{index: 0, node: 'g'}, {index: 1, node: 'f'}]) // now we can move to F
+        agent2at('f')
+        expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
+        expect(nextNodes2).toEqual([{index: 1, node: 'f'}, {index: 2, node: 'e'}])
+
+        agent2at('e')
+        expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
+        expect(nextNodes2).toEqual([{index: 2, node: 'e'}, {index: 3, node: 'd'}])
     })
     // TODO add test that shows we are waiting on distant edge
     //test('two robots opposing directions in a narrow corridor', () => {
