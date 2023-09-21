@@ -333,7 +333,7 @@ class Graferse<T,U=string>
                         // so we can enter corridors as far as we can and wait there
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
-                            lock.unlock(byWhom)
+                            whoCanMoveNow.addAll(lock.unlock(byWhom))
                             break
                         }
                         nextNodes.push({node: this.identity(path[i]), index: i})
