@@ -1165,7 +1165,7 @@ describe('Components', () => {
         })
     })
 
-    describe.only('LinkLock', () => {
+    describe('LinkLock', () => {
         test('locking when directed edge', () => {
             const logSpyWarn = jest.spyOn(console, 'warn').mockImplementation()
             const logSpyError = jest.spyOn(console, 'error').mockImplementation()
