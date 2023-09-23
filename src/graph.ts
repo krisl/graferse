@@ -260,19 +260,26 @@ class Graferse<T>
         this.lockGroups.push(lockGroup)
     }
 
-    isLockGroupAvailable(lock: Lock, byWhom: string) {
+    getLockedGroupLock(lock: Lock, byWhom: string) {
         for(const lockGroup of this.lockGroups) {
             if (lockGroup.includes(lock)) {
                 const lockedNode = lockGroup.filter(l => l !== lock)
                                             .find(l => l.isLockedByOtherThan(byWhom))
                 if (lockedNode) {
-                    // wait on this locked node
-                    if (lockedNode.requestLock(byWhom, "lockGroup")) {
-                        throw new Error("lock was locked, but then not?")
-                    }
-                    return false
+                    return lockedNode
                 }
             }
+        }
+    }
+
+    isLockGroupAvailable(lock: Lock, byWhom: string) {
+        const lockedNode = this.getLockedGroupLock(lock, byWhom)
+        if (lockedNode) {
+            // wait on this locked node
+            if (lockedNode.requestLock(byWhom, "lockGroup")) {
+                throw new Error("lock was locked, but then not?")
+            }
+            return false
         }
         return true
     }
