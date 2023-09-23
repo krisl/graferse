@@ -314,12 +314,12 @@ class Graferse<T>
                 // returns false if first edge fails, otherwise returns true
                 // as we can proceed some of the way in the same direction
 
-                let destinationNode: T|undefined
+                let pivotNode: T|undefined
                 const encounteredLocks = new Set<Lock>()
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
                     if (subpath.length > 2) {
                         if (this.identity(subpath[0]) === this.identity(subpath[2]))
-                            destinationNode = subpath[1]
+                            pivotNode = subpath[1]
                     }
                     if (subpath.length > 0) {
                         const lock = getLock(subpath[0])
@@ -329,7 +329,7 @@ class Graferse<T>
                     }
                     //TODO lockedNodesEncountered needs to be checked against
                     if (subpath.length < 2) {
-                        if (isPathObstructed(destinationNode || subpath[0], encounteredLocks)) {
+                        if (isPathObstructed(pivotNode || subpath[0], encounteredLocks)) {
                             return false
                         }
                         return true
@@ -341,8 +341,8 @@ class Graferse<T>
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
-                        if (destinationNode) {
-                            if (isPathObstructed(destinationNode, encounteredLocks)) {
+                        if (pivotNode) {
+                            if (isPathObstructed(pivotNode, encounteredLocks)) {
                                 return false
                             }
                         }
@@ -431,7 +431,7 @@ class Graferse<T>
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
                         encounteredLocks.clear()
-                        destinationNode = undefined
+                        pivotNode = undefined
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
