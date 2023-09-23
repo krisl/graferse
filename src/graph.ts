@@ -297,8 +297,6 @@ class Graferse<T>
                     : lock.isLockedByOtherThan(byWhom) ? lock
                     : this.getLockedGroupLock(lock, byWhom)
                 if (lastEncouteredLock) {
-                    // we ended our path on a bidir edge (likely a trolly location)
-                    // fail, and wait on the last lock we encountered
                     if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
                         throw new Error("This lock should not succeed")
                     }
@@ -315,6 +313,7 @@ class Graferse<T>
                 let pivotNode: T|undefined
                 const encounteredLocks = new Set<Lock>()
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
+                    // check if the path turns back on itself
                     if (subpath.length > 2) {
                         if (this.identity(subpath[0]) === this.identity(subpath[2]))
                             pivotNode = subpath[1]
@@ -325,8 +324,9 @@ class Graferse<T>
                             encounteredLocks.add(lock)
                         }
                     }
-                    //TODO lockedNodesEncountered needs to be checked against
                     if (subpath.length < 2) {
+                        // we ended our path on a bidir edge (likely a trolly location)
+                        // fail, and wait on the last lock we encountered
                         if (isPathObstructed(pivotNode || subpath[0], encounteredLocks)) {
                             return false
                         }
