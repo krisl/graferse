@@ -1209,6 +1209,31 @@ describe('Components', () => {
     })
 })
 
+describe('Listeners', () => {
+    test('smoke', () => {
+        let listenCallbackCounter = 0
+        const creator = new Graferse()
+        creator.addListener(() => { listenCallbackCounter++ })
+
+        // no one has been called yet
+        expect(listenCallbackCounter).toEqual(0)
+
+        // clearAllLocks invokes listeners
+        creator.clearAllLocks("test")
+        expect(listenCallbackCounter).toEqual(1)
+
+        // notifyWaiters invokes listeners
+        creator.notifyWaiters(new Set())
+        expect(listenCallbackCounter).toEqual(2)
+
+        // recursive calling of notifyWaiters
+        creator.lastCallCache.set("agent1", () => creator.notifyWaiters(new Set()))
+        creator.notifyWaiters(new Set(["agent1"]))
+        // listener is invoked once for each agent
+        expect(listenCallbackCounter).toEqual(4)
+    })
+})
+
 describe('Exceptions', () => {
     test('node not on path', () => {
         const getLockForLink = (from: Lock, to: Lock) => {

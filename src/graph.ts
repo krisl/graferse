@@ -131,6 +131,7 @@ class Graferse
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
+    listeners: Array<() => void> = []
 
     makeLock() {
         const lock = new Lock()
@@ -144,6 +145,16 @@ class Graferse
         return linkLock
     }
 
+    addListener(listener: () => void) {
+        this.listeners.push(listener)
+    }
+
+    notifyListeners() {
+        for (const listener of this.listeners) {
+            listener()
+        }
+    }
+
     notifyWaiters(whoCanMoveNow: Set<string>) {
         for (const waiter of whoCanMoveNow) {
             const lastCall = this.lastCallCache.get(waiter)
@@ -152,6 +163,7 @@ class Graferse
             }
             lastCall()
         }
+        this.notifyListeners()
     }
 
     clearAllLocks(byWhom: string) {
