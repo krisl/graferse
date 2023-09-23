@@ -292,12 +292,10 @@ class Graferse<T>
         return (byWhom: string) => {
             const isPathObstructed = (destinationNode: T, encounteredLocks: Set<Lock>) => {
                 const lock = getLock(destinationNode)
-                const destIsLocked = lock.isLockedByOtherThan(byWhom)
-                const groupLock = this.getLockedGroupLock(lock, byWhom)
                 const lastEncouteredLock = encounteredLocks.size > 0
                     ? Array.from(encounteredLocks).at(-1)
-                    : destIsLocked ? lock
-                    : groupLock
+                    : lock.isLockedByOtherThan(byWhom) ? lock
+                    : this.getLockedGroupLock(lock, byWhom)
                 if (lastEncouteredLock) {
                     // we ended our path on a bidir edge (likely a trolly location)
                     // fail, and wait on the last lock we encountered
