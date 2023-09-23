@@ -5,5 +5,6 @@ const config: Config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  clearMocks: true,
 }
 export default config
