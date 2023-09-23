@@ -292,10 +292,8 @@ class Graferse<T>
         return (byWhom: string) => {
             const isPathObstructed = (destinationNode: T, encounteredLocks: Set<Lock>) => {
                 const lock = getLock(destinationNode)
-                const lastEncouteredLock = encounteredLocks.size > 0
-                    ? Array.from(encounteredLocks).at(-1)
-                    : lock.isLockedByOtherThan(byWhom) ? lock
-                    : this.getLockedGroupLock(lock, byWhom)
+                const lastEncouteredLock = lock.isLockedByOtherThan(byWhom) ? lock
+                    : Array.from(encounteredLocks).at(-1) || this.getLockedGroupLock(lock, byWhom)
                 if (lastEncouteredLock) {
                     if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
                         throw new Error("This lock should not succeed")
