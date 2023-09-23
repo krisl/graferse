@@ -296,30 +296,29 @@ class Graferse<T>
                 // returns false if first edge fails, otherwise returns true
                 // as we can proceed some of the way in the same direction
 
-                let lockedNodesEncountered = 0
-                let lastEncouteredLock: Lock
-                let willReverse = false
+                let destinationNode: T|undefined
+                const encounteredLocks = new Set<Lock>()
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
                     if (subpath.length > 2) {
                         if (this.identity(subpath[0]) === this.identity(subpath[2]))
-                            willReverse = true
+                            destinationNode = subpath[1]
                     }
                     if (subpath.length > 0) {
                         const lock = getLock(subpath[0])
                         if (lock.isLockedByOtherThan(byWhom)) {
-                            lockedNodesEncountered++
-                            lastEncouteredLock = lock
-                        } else {
-                            const grouplock = this.getLockedGroupLock(lock, byWhom)
-                            if (grouplock) {
-                                lockedNodesEncountered++
-                                lastEncouteredLock = grouplock
-                            }
+                            encounteredLocks.add(lock)
                         }
                     }
                     //TODO lockedNodesEncountered needs to be checked against
                     if (subpath.length < 2) {
-                        if (lockedNodesEncountered > 0) {
+                        const lock = getLock(destinationNode || subpath[0])
+                        const destIsLocked = lock.isLockedByOtherThan(byWhom)
+                        const groupLock = this.getLockedGroupLock(lock, byWhom)
+                        const lastEncouteredLock = encounteredLocks.size > 0
+                            ? Array.from(encounteredLocks).at(-1)
+                            : destIsLocked ? lock
+                            : groupLock
+                        if (lastEncouteredLock) {
                             // we ended our path on a bidir edge (likely a trolly location)
                             // fail, and wait on the last lock we encountered
                             if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
@@ -336,13 +335,22 @@ class Graferse<T>
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
-                        if (willReverse && lockedNodesEncountered > 0) {
-                            // we ended our path on a bidir edge (likely a trolly location)
-                            // fail, and wait on the last lock we encountered
-                            if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
-                                throw new Error("This lock should not succeed")
+                        if (destinationNode) {
+                            const lock = getLock(destinationNode)
+                            const destIsLocked = lock.isLockedByOtherThan(byWhom)
+                            const groupLock = this.getLockedGroupLock(lock, byWhom)
+                            const lastEncouteredLock = encounteredLocks.size > 0
+                                ? Array.from(encounteredLocks).at(-1)
+                                : destIsLocked ? lock
+                                : groupLock
+                            if (lastEncouteredLock) {
+                                // we ended our path on a bidir edge (likely a trolly location)
+                                // fail, and wait on the last lock we encountered
+                                if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
+                                    throw new Error("This lock should not succeed")
+                                }
+                                return false
                             }
-                            return false
                         }
                         return true
                     }
@@ -428,14 +436,14 @@ class Graferse<T>
                         // TODO consider returning the length of obtained edge locks
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
-                        lockedNodesEncountered = 0
-                        willReverse = false
+                        encounteredLocks.clear()
+                        destinationNode = undefined
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
                             break
                         }
-                        console.log(`Encountered ${lockedNodesEncountered} locks along the way`)
+                        console.log(`Encountered ${encounteredLocks.size} locks along the way`)
                         nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 
