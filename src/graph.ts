@@ -309,6 +309,12 @@ class Graferse<T>
                         if (lock.isLockedByOtherThan(byWhom)) {
                             lockedNodesEncountered++
                             lastEncouteredLock = lock
+                        } else {
+                            const grouplock = this.getLockedGroupLock(lock, byWhom)
+                            if (grouplock) {
+                                lockedNodesEncountered++
+                                lastEncouteredLock = grouplock
+                            }
                         }
                     }
                     //TODO lockedNodesEncountered needs to be checked against
