@@ -290,7 +290,7 @@ class Graferse<T>
     ) {
         type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
-            const isPathObstructed = (destinationNode: T, encounteredLocks: Set<Lock>) => {
+            const waitOnObstructor = (destinationNode: T, encounteredLocks: Set<Lock>) => {
                 const lock = getLock(destinationNode)
                 const lastEncouteredLock = lock.isLockedByOtherThan(byWhom) ? lock
                     : Array.from(encounteredLocks).at(-1) || this.getLockedGroupLock(lock, byWhom)
@@ -325,7 +325,7 @@ class Graferse<T>
                     if (subpath.length < 2) {
                         // we ended our path on a bidir edge (likely a trolly location)
                         // fail, and wait on the last lock we encountered
-                        if (isPathObstructed(pivotNode || subpath[0], encounteredLocks)) {
+                        if (waitOnObstructor(pivotNode || subpath[0], encounteredLocks)) {
                             return false
                         }
                         return true
@@ -338,7 +338,7 @@ class Graferse<T>
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
                         if (pivotNode) {
-                            if (isPathObstructed(pivotNode, encounteredLocks)) {
+                            if (waitOnObstructor(pivotNode, encounteredLocks)) {
                                 return false
                             }
                         }
