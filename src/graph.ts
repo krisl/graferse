@@ -290,6 +290,24 @@ class Graferse<T>
     ) {
         type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
+            const isPathObstructed = (destinationNode: T, encounteredLocks: Set<Lock>) => {
+                const lock = getLock(destinationNode)
+                const destIsLocked = lock.isLockedByOtherThan(byWhom)
+                const groupLock = this.getLockedGroupLock(lock, byWhom)
+                const lastEncouteredLock = encounteredLocks.size > 0
+                    ? Array.from(encounteredLocks).at(-1)
+                    : destIsLocked ? lock
+                    : groupLock
+                if (lastEncouteredLock) {
+                    // we ended our path on a bidir edge (likely a trolly location)
+                    // fail, and wait on the last lock we encountered
+                    if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
+                        throw new Error("This lock should not succeed")
+                    }
+                    return true
+                }
+            }
+
             const makePathLocker = (path: T[]) => (callback: NextNodes) => {
                 // given an index in the path, tries to lock all bidirectional edges
                 // till the last node in the path
@@ -311,19 +329,7 @@ class Graferse<T>
                     }
                     //TODO lockedNodesEncountered needs to be checked against
                     if (subpath.length < 2) {
-                        const lock = getLock(destinationNode || subpath[0])
-                        const destIsLocked = lock.isLockedByOtherThan(byWhom)
-                        const groupLock = this.getLockedGroupLock(lock, byWhom)
-                        const lastEncouteredLock = encounteredLocks.size > 0
-                            ? Array.from(encounteredLocks).at(-1)
-                            : destIsLocked ? lock
-                            : groupLock
-                        if (lastEncouteredLock) {
-                            // we ended our path on a bidir edge (likely a trolly location)
-                            // fail, and wait on the last lock we encountered
-                            if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
-                                throw new Error("This lock should not succeed")
-                            }
+                        if (isPathObstructed(destinationNode || subpath[0], encounteredLocks)) {
                             return false
                         }
                         return true
@@ -336,19 +342,7 @@ class Graferse<T>
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
                         if (destinationNode) {
-                            const lock = getLock(destinationNode)
-                            const destIsLocked = lock.isLockedByOtherThan(byWhom)
-                            const groupLock = this.getLockedGroupLock(lock, byWhom)
-                            const lastEncouteredLock = encounteredLocks.size > 0
-                                ? Array.from(encounteredLocks).at(-1)
-                                : destIsLocked ? lock
-                                : groupLock
-                            if (lastEncouteredLock) {
-                                // we ended our path on a bidir edge (likely a trolly location)
-                                // fail, and wait on the last lock we encountered
-                                if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
-                                    throw new Error("This lock should not succeed")
-                                }
+                            if (isPathObstructed(destinationNode, encounteredLocks)) {
                                 return false
                             }
                         }
