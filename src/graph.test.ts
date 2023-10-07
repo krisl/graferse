@@ -1,7 +1,7 @@
 import type { Node } from 'ngraph.graph'
 import ngraphCreateGraph from 'ngraph.graph'
 import ngraphPath from 'ngraph.path'
-import { makeMakeLocker, Graferse } from './graph.js'
+import { Graferse } from './graph.js'
 import type { Lock, LinkLock, NextNode } from './graph.js'
 
 const getLockForLink = (from: Node, to: Node) => {
@@ -11,24 +11,24 @@ const getLockForLink = (from: Node, to: Node) => {
 
 describe('Graferse class', () => {
     test('creating locks', () => {
-        const creator = new Graferse()
+        const creator = new Graferse<Node>(node => node.id)
         expect(creator.locks).toEqual([])
         expect(creator.linkLocks).toEqual([])
 
-        const lock1 = creator.makeLock()
+        const lock1 = creator.makeLock('lock1')
         expect(typeof lock1).toBe("object")
         expect(creator.locks).toEqual([lock1])
         expect(creator.linkLocks).toEqual([])
 
-        const linkLock1 = creator.makeLinkLock()
+        const linkLock1 = creator.makeLinkLock('a', 'b')
         expect(typeof linkLock1).toBe("object")
         expect(creator.locks).toEqual([lock1])
         expect(creator.linkLocks).toEqual([linkLock1])
     })
     test('lock groups', () => {
-        const creator = new Graferse()
-        const lock1 = creator.makeLock()
-        const lock2 = creator.makeLock()
+        const creator = new Graferse<Node>(node => node.id)
+        const lock1 = creator.makeLock('lock1')
+        const lock2 = creator.makeLock('lock2')
         creator.setLockGroup([lock1, lock2])
 
         expect(lock1.requestLock("agent1", "lock1")).toBeTruthy()
@@ -43,11 +43,11 @@ describe('Graferse class', () => {
         expect(lock1.unlock("agent1")).toEqual(new Set(["agent2"]))
     })
     test('clearAllLocks', () => {
-        const creator = new Graferse()
-        const lock1 = creator.makeLock()
-        const lock2 = creator.makeLock()
-        const linkLock1 = creator.makeLinkLock(true)
-        const linkLock2 = creator.makeLinkLock(true)
+        const creator = new Graferse<Node>(node => node.id)
+        const lock1 = creator.makeLock('lock1')
+        const lock2 = creator.makeLock('lock2')
+        const linkLock1 = creator.makeLinkLock('up', 'down', true)
+        const linkLock2 = creator.makeLinkLock('up', 'down', true)
 
         expect(lock1.requestLock("agent1", "lock1")).toBeTruthy()
         expect(lock2.requestLock("agent2", "lock2")).toBeTruthy()
@@ -75,16 +75,18 @@ describe('Graferse class', () => {
 describe('no dependencies', () => {
     test('basic locking with identities', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock()
+            return creator.makeLinkLock(from.id, to.id)
         }
-        const creator = new Graferse()
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
+        const creator = new Graferse<Lock>(
+            lock => lockToString.get(lock) as string// what we are going to give current nodes in
+        )
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
         const path1 = [nodeA, nodeB, nodeC]
 
-        const nodeX = creator.makeLock()
-        const nodeY = creator.makeLock()
+        const nodeX = creator.makeLock('nodeX')
+        const nodeY = creator.makeLock('nodeY')
         const path2 = [nodeX, nodeB, nodeY]
 
         const lockToString = new Map<Lock,string>()
@@ -94,15 +96,13 @@ describe('no dependencies', () => {
         lockToString.set(nodeX, 'nodeX')
         lockToString.set(nodeY, 'nodeY')
 
-        const makeLocker = makeMakeLocker<Lock>(
-            creator,
+        const makeLocker = creator.makeMakeLocker(
             node => node,
             getLockForLink,
-            lock => lockToString.get(lock) as string// what we are going to give current nodes in
         )
 
-        const forwardPaths1: Array<Array<NextNode<string>>> = []
-        const forwardPaths2: Array<Array<NextNode<string>>> = []
+        const forwardPaths1: Array<Array<NextNode>> = []
+        const forwardPaths2: Array<Array<NextNode>> = []
 
         const test1At = makeLocker("test1").makePathLocker(path1)(
             (nextNodes) => { forwardPaths1.push(nextNodes) }
@@ -156,23 +156,23 @@ describe('no dependencies', () => {
 
     test('basic locking', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock()
+            return creator.makeLinkLock(from.id, to.id)
         }
-        const creator = new Graferse()
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
+        const creator = new Graferse<Lock>(node => node.id)
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
         const path1 = [nodeA, nodeB, nodeC]
 
-        const nodeX = creator.makeLock()
-        const nodeY = creator.makeLock()
+        const nodeX = creator.makeLock('nodeX')
+        const nodeY = creator.makeLock('nodeY')
         const path2 = [nodeX, nodeB, nodeY]
 
 
-        const makeLocker = makeMakeLocker<Lock,Lock>(creator, node => node, getLockForLink, node => node)
+        const makeLocker = creator.makeMakeLocker(node => node, getLockForLink)
 
-        var forwardPath1: Array<NextNode<Lock>> = []
-        var forwardPath2: Array<NextNode<Lock>> = []
+        let forwardPath1: Array<NextNode> = []
+        let forwardPath2: Array<NextNode> = []
 
         const test1At = makeLocker("test1").makePathLocker(path1)(
             (nextNodes) => { forwardPath1 = nextNodes }
@@ -186,20 +186,20 @@ describe('no dependencies', () => {
         expect(forwardPath2).toEqual([])
 
         test1At.arrivedAt(path1.indexOf(nodeA))
-        expect(forwardPath1).toEqual([{index: 0, node: nodeA}, {index: 1, node: nodeB}])
+        expect(forwardPath1).toEqual([{index: 0, node: 'nodeA'}, {index: 1, node: 'nodeB'}])
         expect(forwardPath2).toEqual([])
 
         test2At.arrivedAt(path2.indexOf(nodeX))
-        expect(forwardPath1).toEqual([{index: 0, node: nodeA}, {index: 1, node: nodeB}])
-        expect(forwardPath2).toEqual([{index: 0, node: nodeX}]) // only nodeX because nodeB is locked
+        expect(forwardPath1).toEqual([{index: 0, node: 'nodeA'}, {index: 1, node: 'nodeB'}])
+        expect(forwardPath2).toEqual([{index: 0, node: 'nodeX'}]) // only nodeX because nodeB is locked
 
         test1At.arrivedAt(path1.indexOf(nodeB))
-        expect(forwardPath1).toEqual([{index: 1, node: nodeB}, {index: 2, node: nodeC}])
-        expect(forwardPath2).toEqual([{index: 0, node: nodeX}]) // only nodeX because nodeB is still locked
+        expect(forwardPath1).toEqual([{index: 1, node: 'nodeB'}, {index: 2, node: 'nodeC'}])
+        expect(forwardPath2).toEqual([{index: 0, node: 'nodeX'}]) // only nodeX because nodeB is still locked
 
         test1At.arrivedAt(path1.indexOf(nodeC))
-        expect(forwardPath1).toEqual([{index: 2, node: nodeC}])
-        expect(forwardPath2).toEqual([{index: 0, node: nodeX}, {index: 1, node: nodeB}]) // nodeB is now unlocked
+        expect(forwardPath1).toEqual([{index: 2, node: 'nodeC'}])
+        expect(forwardPath2).toEqual([{index: 0, node: 'nodeX'}, {index: 1, node: 'nodeB'}]) // nodeB is now unlocked
 
         test1At.clearAllPathLocks()
         //expect(forwardPath1).toEqual([])
@@ -228,24 +228,23 @@ describe('no dependencies', () => {
 describe('ngraph', () => {
     test('basic locking', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        var forwardPath: Array<NextNode<string>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(
-            creator,
+        var forwardPath: Array<NextNode> = []
+        const makeLocker = creator.makeMakeLocker(
             node => node.data,
-            getLockForLink,
-            node => node.id as string)("agent1").makePathLocker
+            getLockForLink)("agent1").makePathLocker
         const locker = makeLocker(path)((nextNodes) => { forwardPath = nextNodes })
         const arrivedAt = (nodeId: string) =>
            locker.arrivedAt(path.findIndex(node => node.id === nodeId))
@@ -283,20 +282,21 @@ describe('ngraph', () => {
 
     test('basic locking - clearAllPathLocks', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)("agent1").makePathLocker
-        var forwardPath: Array<NextNode<string>> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)("agent1").makePathLocker
+        var forwardPath: Array<NextNode> = []
         const locker = makeLocker(path)((nextNodes) => { forwardPath = nextNodes })
         const arrivedAt = (nodeId: string) =>
            locker.arrivedAt(path.findIndex(node => node.id === nodeId))
@@ -331,20 +331,21 @@ describe('ngraph', () => {
 
     test('unexpected queue jumping', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
 
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        var forwardPath: Array<NextNode<string>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)("agent1").makePathLocker
+        var forwardPath: Array<NextNode> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)("agent1").makePathLocker
         const locker = makeLocker(path)((nextNodes) => { forwardPath = nextNodes })
         const arrivedAt = (nodeId: string) =>
            locker.arrivedAt(path.findIndex(node => node.id === nodeId))
@@ -370,12 +371,13 @@ describe('ngraph', () => {
 
     test('two robot mutual exclusion', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
 
         // A
         //  \
@@ -384,17 +386,17 @@ describe('ngraph', () => {
         //   ^
         //  /
         // B
-        graph.addLink('a', 'c', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
-        graph.addLink('c', 'd', creator.makeLock())
+        graph.addLink('a', 'c', creator.makeLock('ac'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
+        graph.addLink('c', 'd', creator.makeLock('cd'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'd').reverse()
         const s2Path = pathFinder.find('b', 'c').reverse()
 
-        var s1ForwardPath: Array<NextNode<string>> = []
-        var s2ForwardPath: Array<NextNode<string>> = []
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
+        var s1ForwardPath: Array<NextNode> = []
+        var s2ForwardPath: Array<NextNode> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes })
         const s2LockNext = makeLocker("agent2").makePathLocker(s2Path)((nextNodes) => { s2ForwardPath = nextNodes })
 
@@ -448,17 +450,18 @@ describe('ngraph', () => {
 
     test('bidirectional corridor convoy', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(x => x.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeH = graph.addNode('h', creator.makeLock())
-        const nodeI = graph.addNode('i', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeH = makeNode('h')
+        const nodeI = makeNode('i')
 
         // B                                        H
         //  \                                       ^
@@ -469,10 +472,10 @@ describe('ngraph', () => {
         // A                                        I
 
         // bidirectional locks
-        const lockCD = creator.makeLinkLock(true)
-        const lockDE = creator.makeLinkLock(true)
-        const lockEF = creator.makeLinkLock(true)
-        const lockFG = creator.makeLinkLock(true)
+        const lockCD = creator.makeLinkLock('c', 'd', true)
+        const lockDE = creator.makeLinkLock('d', 'e', true)
+        const lockEF = creator.makeLinkLock('e', 'f', true)
+        const lockFG = creator.makeLinkLock('f', 'g', true)
 
         // bidirectional links
         const linkCD = graph.addLink('c', 'd', lockCD)
@@ -489,23 +492,21 @@ describe('ngraph', () => {
 
 
         // directed links
-        const linkAC = graph.addLink('a', 'c', creator.makeLinkLock())
-        const linkBC = graph.addLink('b', 'c', creator.makeLinkLock())
-        const linkGH = graph.addLink('g', 'h', creator.makeLinkLock())
-        const linkGI = graph.addLink('g', 'i', creator.makeLinkLock())
+        const linkAC = graph.addLink('a', 'c', creator.makeLinkLock('a', 'c'))
+        const linkBC = graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
+        const linkGH = graph.addLink('g', 'h', creator.makeLinkLock('g', 'h'))
+        const linkGI = graph.addLink('g', 'i', creator.makeLinkLock('g', 'i'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'h').reverse()
         const s2Path = pathFinder.find('b', 'i').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(
-            creator,
+        const makeLocker = creator.makeMakeLocker(
             node => node.data,
             getLockForLink,
-            x => x.id as string
         )
-        const s1NextPaths: Array<Array<NextNode<string>>> = []
-        const s2NextPaths: Array<Array<NextNode<string>>> = []
+        const s1NextPaths: Array<Array<NextNode>> = []
+        const s2NextPaths: Array<Array<NextNode>> = []
         var s1calls = 0
         var s2calls = 0
         const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => {
@@ -655,22 +656,23 @@ describe('ngraph', () => {
 
     test('bidirectional corridor with early exit', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
 
         // A <----> B <----> C <----> D
         //                    \
         //                     v
         //                     E
 
-        const lockAB = creator.makeLinkLock(true)
-        const lockBC = creator.makeLinkLock(true)
-        const lockCD = creator.makeLinkLock(true)
+        const lockAB = creator.makeLinkLock('a', 'b', true)
+        const lockBC = creator.makeLinkLock('b', 'c', true)
+        const lockCD = creator.makeLinkLock('c', 'd', true)
 
         const linkAB = graph.addLink('a', 'b', lockAB)
         const linkBC = graph.addLink('b', 'c', lockBC)
@@ -680,13 +682,13 @@ describe('ngraph', () => {
         const linkCB = graph.addLink('c', 'b', lockBC)
         const linkBA = graph.addLink('b', 'a', lockAB)
 
-        const linkCE = graph.addLink('c', 'e', creator.makeLinkLock())
+        const linkCE = graph.addLink('c', 'e', creator.makeLinkLock('c', 'e'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'e').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
-        var s1ForwardPath: Array<NextNode<string>> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var s1ForwardPath: Array<NextNode> = []
         const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes })
 
         // all nodes are unlocked
@@ -727,7 +729,7 @@ describe('ngraph', () => {
 
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'b').reverse()
-        var s2ForwardPath: Array<NextNode<string>> = []
+        var s2ForwardPath: Array<NextNode> = []
         const s2LockNext = makeLocker("agent2").makePathLocker(s2Path)((nextNodes) => { s2ForwardPath = nextNodes })
         s2LockNext.arrivedAt(s2Path.indexOf(nodeD))
 
@@ -767,14 +769,15 @@ describe('ngraph', () => {
 
     test('three agents bidirectional corridor with early exit', () => {
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
 
         //                      F
         //                     ^
@@ -784,23 +787,23 @@ describe('ngraph', () => {
         //                     v
         //                     E
 
-        const lockAB = creator.makeLinkLock(true)
-        const lockBC = creator.makeLinkLock(true)
+        const lockAB = creator.makeLinkLock('a', 'b', true)
+        const lockBC = creator.makeLinkLock('b', 'c', true)
 
         const linkAB = graph.addLink('a', 'b', lockAB)
         const linkBC = graph.addLink('b', 'c', lockBC)
         const linkCB = graph.addLink('c', 'b', lockBC)
         const linkBA = graph.addLink('b', 'a', lockAB)
 
-        const linkCD = graph.addLink('d', 'c', creator.makeLinkLock())
-        const linkCE = graph.addLink('c', 'e', creator.makeLinkLock())
-        const linkCF = graph.addLink('c', 'f', creator.makeLinkLock())
+        const linkCD = graph.addLink('d', 'c', creator.makeLinkLock('d', 'c'))
+        const linkCE = graph.addLink('c', 'e', creator.makeLinkLock('c', 'e'))
+        const linkCF = graph.addLink('c', 'f', creator.makeLinkLock('c', 'f'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'e').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
-        var s1ForwardPath: Array<NextNode<string>> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var s1ForwardPath: Array<NextNode> = []
         const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes })
 
         expect(s1ForwardPath).toEqual([])
@@ -811,7 +814,7 @@ describe('ngraph', () => {
 
         // an opposing robot appears
         const s2Path = pathFinder.find('d', 'a').reverse()
-        var s2ForwardPath: Array<NextNode<string>> = []
+        var s2ForwardPath: Array<NextNode> = []
         const s2LockNext = makeLocker("agent2").makePathLocker(s2Path)((nextNodes) => { s2ForwardPath = nextNodes })
         //console.log({s2Path})
         s2LockNext.arrivedAt(s2Path.indexOf(nodeD))
@@ -824,7 +827,7 @@ describe('ngraph', () => {
         expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}])
 
         const s3Path = pathFinder.find('a', 'f').reverse()
-        var s3ForwardPath: Array<NextNode<string>> = []
+        var s3ForwardPath: Array<NextNode> = []
         const s3LockNext = makeLocker("agent3").makePathLocker(s3Path)((nextNodes) => { s3ForwardPath = nextNodes })
 
         //console.warn('s3 stepping to node a')
@@ -870,22 +873,23 @@ describe('ngraph', () => {
         //                                   v
         //                                   Z
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeY = graph.addNode('y', creator.makeLock())
-        const nodeZ = graph.addNode('z', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeY = makeNode('y')
+        const nodeZ = makeNode('z')
 
-        const lockCD = creator.makeLinkLock(true)
-        const lockDE = creator.makeLinkLock(true)
-        const lockCY = creator.makeLinkLock(true)
-        const lockEZ = creator.makeLinkLock(true)
+        const lockCD = creator.makeLinkLock('c', 'd', true)
+        const lockDE = creator.makeLinkLock('d', 'e', true)
+        const lockCY = creator.makeLinkLock('c', 'y', true)
+        const lockEZ = creator.makeLinkLock('e', 'z', true)
 
         function addBiLink(a: string, b: string, lock: LinkLock) {
             return [
@@ -894,12 +898,12 @@ describe('ngraph', () => {
             ]
         }
 
-        graph.addLink('a', 'b', creator.makeLinkLock()),
-        graph.addLink('b', 'c', creator.makeLinkLock()),
+        graph.addLink('a', 'b', creator.makeLinkLock('a', 'b')),
+        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c')),
         addBiLink('c', 'd', lockCD)
         addBiLink('d', 'e', lockDE)
-        graph.addLink('g', 'f', creator.makeLinkLock()),
-        graph.addLink('f', 'e', creator.makeLinkLock()),
+        graph.addLink('g', 'f', creator.makeLinkLock('g', 'f')),
+        graph.addLink('f', 'e', creator.makeLinkLock('f', 'e')),
         addBiLink('c', 'y', lockCY)
         addBiLink('e', 'z', lockEZ)
 
@@ -917,9 +921,9 @@ describe('ngraph', () => {
         const path1 = pathFinder.find('a', 'z').reverse()
         const path2 = pathFinder.find('g', 'y').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
-        var nextNodes1: Array<NextNode<string>> = []
-        var nextNodes2: Array<NextNode<string>> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var nextNodes1: Array<NextNode> = []
+        var nextNodes2: Array<NextNode> = []
         const agent1at = makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).lockNext
         const agent2at = makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).lockNext
 
@@ -970,23 +974,24 @@ describe('ngraph', () => {
         //                                   v
         //                                   Z
         const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        const nodeA = graph.addNode('a', creator.makeLock())
-        const nodeB = graph.addNode('b', creator.makeLock())
-        const nodeC = graph.addNode('c', creator.makeLock())
-        const nodeD = graph.addNode('d', creator.makeLock())
-        const nodeE = graph.addNode('e', creator.makeLock())
-        const nodeF = graph.addNode('f', creator.makeLock())
-        const nodeG = graph.addNode('g', creator.makeLock())
-        const nodeY = graph.addNode('y', creator.makeLock())
-        const nodeZ = graph.addNode('z', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeY = makeNode('y')
+        const nodeZ = makeNode('z')
 
-        const lockCD = creator.makeLinkLock(true)
-        const lockDE = creator.makeLinkLock(true)
-        const lockEF = creator.makeLinkLock(true)
-        const lockCY = creator.makeLinkLock(true)
-        const lockEZ = creator.makeLinkLock(true)
+        const lockCD = creator.makeLinkLock('c', 'd', true)
+        const lockDE = creator.makeLinkLock('d', 'e', true)
+        const lockEF = creator.makeLinkLock('e', 'f', true)
+        const lockCY = creator.makeLinkLock('c', 'y', true)
+        const lockEZ = creator.makeLinkLock('e', 'z', true)
 
         function addBiLink(a: string, b: string, lock: LinkLock) {
             return [
@@ -995,11 +1000,11 @@ describe('ngraph', () => {
             ]
         }
 
-        graph.addLink('a', 'b', creator.makeLinkLock()),
-        graph.addLink('b', 'c', creator.makeLinkLock()),
+        graph.addLink('a', 'b', creator.makeLinkLock('a', 'b')),
+        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c')),
         addBiLink('c', 'd', lockCD)
         addBiLink('d', 'e', lockDE)
-        graph.addLink('g', 'f', creator.makeLinkLock()),
+        graph.addLink('g', 'f', creator.makeLinkLock('g', 'f')),
         addBiLink('f', 'e', lockEF),
         addBiLink('c', 'y', lockCY)
         addBiLink('e', 'z', lockEZ)
@@ -1018,9 +1023,9 @@ describe('ngraph', () => {
         const path1 = pathFinder.find('a', 'z').reverse()
         const path2 = pathFinder.find('g', 'y').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
-        var nextNodes1: Array<NextNode<string>> = []
-        var nextNodes2: Array<NextNode<string>> = []
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var nextNodes1: Array<NextNode> = []
+        var nextNodes2: Array<NextNode> = []
         const agent1at = makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).lockNext
         const agent2at = makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).lockNext
 
@@ -1074,15 +1079,15 @@ describe('ngraph', () => {
     //    //   ----> C ----> D
     //    //  /
     //    // B
-    //    graph.addLink('a', 'c', creator.makeLinkLock())
-    //    graph.addLink('b', 'c', creator.makeLinkLock())
-    //    graph.addLink('c', 'd', creator.makeLinkLock())
+    //    graph.addLink('a', 'c', creator.makeLinkLock('a', 'c'))
+    //    graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
+    //    graph.addLink('c', 'd', creator.makeLinkLock('c', 'd'))
 
     //    const pathFinder = ngraphPath.aStar(graph, { oriented: true })
     //    const s1Path = pathFinder.find('a', 'd')
     //    const s2Path = pathFinder.find('b', 'c')
 
-    //    const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink)
+    //    const makeLocker = creator.makeMakeLocker<Node<Lock>>(node => node.data, getLockForLink)
     //    var s1ForwardPath: Array<Node<Lock>> = []
     //    var s2ForwardPath: Array<Node<Lock>> = []
     //    const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes }).lockNext
@@ -1127,20 +1132,21 @@ describe('ngraph', () => {
     //})
     test('directed', () => {
         const graph = ngraphCreateGraph()
-        const creator = new Graferse()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
 
-        graph.addNode('a', creator.makeLock())
-        graph.addNode('b', creator.makeLock())
-        graph.addNode('c', creator.makeLock())
-        graph.addLink('a', 'b', creator.makeLock())
-        graph.addLink('b', 'c', creator.makeLock())
-        graph.addLink('c', 'b', creator.makeLock())
-        graph.addLink('b', 'a', creator.makeLock())
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        graph.addLink('a', 'b', creator.makeLock('ab'))
+        graph.addLink('b', 'c', creator.makeLock('bc'))
+        graph.addLink('c', 'b', creator.makeLock('cb'))
+        graph.addLink('b', 'a', creator.makeLock('ba'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const path = pathFinder.find('a', 'c').reverse()
 
-        const makeLocker = makeMakeLocker<Node<Lock>>(creator, node => node.data, getLockForLink, node => node.id as string)
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         const lockNext = makeLocker("agent1").makePathLocker(path)((nextNodes) => {})
 
         for (var i = 0; i < path.length; i++) {
@@ -1152,8 +1158,8 @@ describe('ngraph', () => {
 describe('Components', () => {
     describe('Lock', () => {
         test('locking twice', () => {
-            const creator = new Graferse()
-            const lock = creator.makeLock()
+            const creator = new Graferse<Node>(node => node.id)
+            const lock = creator.makeLock('lock')
             expect(lock.requestLock('test', 'abc')).toBeTruthy()
             expect(lock.requestLock('test', 'def')).toBeTruthy()
         })
@@ -1163,8 +1169,8 @@ describe('Components', () => {
         test('locking when directed edge', () => {
             const logSpyWarn = jest.spyOn(console, 'warn').mockImplementation()
             const logSpyError = jest.spyOn(console, 'error').mockImplementation()
-            const creator = new Graferse()
-            const linkLock = creator.makeLinkLock() // by default is directed edge
+            const creator = new Graferse<Node>(node => node.id)
+            const linkLock = creator.makeLinkLock('up', 'down') // by default is directed edge
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
             expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
@@ -1178,21 +1184,21 @@ describe('Components', () => {
 
         describe('Locking in both directions', () => {
             test('single owner can lock both directions', () => {
-                const creator = new Graferse()
-                const linkLock = creator.makeLinkLock(true) // is bidirectional
+                const creator = new Graferse<Node>(node => node.id)
+                const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
             })
             test('owner cannot lock both directions if multiple owners', () => {
-                const creator = new Graferse()
-                const linkLock = creator.makeLinkLock(true) // is bidirectional
+                const creator = new Graferse<Node>(node => node.id)
+                const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
             })
             test('agent cannot lock if both directions already locked', () => {
-                const creator = new Graferse()
-                const linkLock = creator.makeLinkLock(true) // is bidirectional
+                const creator = new Graferse<Node>(node => node.id)
+                const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
                 expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
                 expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
                 expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
@@ -1211,7 +1217,7 @@ describe('Components', () => {
 describe('Listeners', () => {
     test('smoke', () => {
         let listenCallbackCounter = 0
-        const creator = new Graferse()
+        const creator = new Graferse<Node>(node => node.id)
         creator.addListener(() => { listenCallbackCounter++ })
 
         // no one has been called yet
@@ -1236,19 +1242,17 @@ describe('Listeners', () => {
 describe('Exceptions', () => {
     test('node not on path', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock()
+            return creator.makeLinkLock(from.id, to.id)
         }
-        const creator = new Graferse()
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
-        const nodeX = creator.makeLock()
+        const creator = new Graferse<Lock>(node => node.id)
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
+        const nodeX = creator.makeLock('nodeX')
 
-        const makeLocker = makeMakeLocker<Lock,Lock>(
-            creator,
+        const makeLocker = creator.makeMakeLocker(
             node => node,
-            (from, to) => creator.makeLinkLock(),
-            node => node)
+            (from, to) => creator.makeLinkLock(from.id, to.id))
 
         const test1Path = [nodeA, nodeB, nodeC]
         const test1At = makeLocker("test1").makePathLocker(test1Path)(
@@ -1260,14 +1264,14 @@ describe('Exceptions', () => {
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        expect(() => test1At.lockNext(nodeB)).not.toThrow()
+        expect(() => test1At.lockNext('nodeB')).not.toThrow()
         expect(() => test1At.arrivedAt(test1Path.indexOf(nodeB))).not.toThrow()
         expect(logSpyError).not.toHaveBeenCalled()
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeC.isLocked()).toBeTruthy()
 
-        expect(() => test1At.lockNext(nodeX)).not.toThrow()
+        expect(() => test1At.lockNext('nodeX')).not.toThrow()
         expect(logSpyError).toHaveBeenCalled()
         // and all nodes are unlocked again
         expect(nodeA.isLocked()).toBeFalsy()
@@ -1279,22 +1283,20 @@ describe('Exceptions', () => {
     })
     test('arrivedAt bounds', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock()
+            return creator.makeLinkLock(from.id, to.id)
         }
-        const creator = new Graferse()
-        const nodeA = creator.makeLock()
-        const nodeB = creator.makeLock()
-        const nodeC = creator.makeLock()
-        const nodeX = creator.makeLock()
+        const creator = new Graferse<Lock>(node => node?.id)
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeC = creator.makeLock('nodeC')
+        const nodeX = creator.makeLock('nodeX')
 
-        const makeLocker = makeMakeLocker<Lock,Lock>(
-            creator,
+        const makeLocker = creator.makeMakeLocker(
             node => node,
-            (from, to) => creator.makeLinkLock(),
-            node => node)
+            (from, to) => creator.makeLinkLock(from.id, to.id))
 
         const test1Path = [nodeA, nodeB, nodeC]
-        var forwardPath: Array<NextNode<Lock>> = []
+        var forwardPath: Array<NextNode> = []
         const test1At = makeLocker("test1").makePathLocker(test1Path)(
             (nextNodes) => { forwardPath = nextNodes }
         )
@@ -1315,7 +1317,7 @@ describe('Exceptions', () => {
         expect(nodeA.isLocked()).toBeTruthy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
-        expect(forwardPath).toEqual([{index: 0, node: nodeA}])
+        expect(forwardPath).toEqual([{index: 0, node: 'nodeA'}])
 
         test1At.arrivedAt(3)
         // and all nodes are unlocked again
