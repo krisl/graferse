@@ -20,7 +20,8 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
@@ -41,7 +42,8 @@ jobs:
       matrix:
         bun-version: [latest, canary]
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
     - uses: oven-sh/setup-bun@v1
       with:
         bun-version: ${{ matrix.node-version }}
