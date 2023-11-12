@@ -81,84 +81,111 @@ class Lock {
     }
 }
 
-type LinkLockType = "FREE" | "PRO" | "CON"
-
 class LinkLock {
-    private _lock: Lock = new Lock("linklock")
-    private _directions: Set<string> = new Set()
-    private _allowed_directions: Set<string>
+    private _lockers = new Map<string, Set<string>>()
+    private _waiters = new Map<string, Set<string>>()
+    private _otherdir = new Map<string, string>()
 
     check (direction: string) {
-        if (!this._allowed_directions.has(direction))
-            throw new Error(`no such direction ${direction}`)
+        if (!this._waiters.get(direction))
+            throw new Error(`no such wait direction ${direction}`)
+        if (!this._lockers.get(direction))
+            throw new Error(`no such lock direction ${direction}`)
+        if (!this._otherdir.get(direction))
+            throw new Error(`no such other direction ${direction}`)
     }
 
-    constructor (from: string, to: string) {
-        this._allowed_directions = new Set([from, to])
+    //isWaiting (who: string, direction: string) {
+    //    check(direction)
+    //    return this._waiters.get(direction).has(who)
+    //}
+
+    isWaiting (who: string) {
+        return Array.from(this._otherdir.keys()).some(dir => {
+            const waiters = this._waiters.get(dir)
+            return waiters?.has(who)
+        })
     }
 
     getDetails() {
         return {
-            directions: this._directions,
-            who: this._lock.lockedBy,
+            lockers: this._lockers,
+            waiters: this._waiters,
         }
     }
 
-    requestLock (byWhom: string, direction: string): LinkLockType {
+    constructor (to: string, from: string) {
+        this._lockers.set(to, new Set<string>())
+        this._lockers.set(from, new Set<string>())
+
+        this._waiters.set(to, new Set<string>())
+        this._waiters.set(from, new Set<string>())
+
+        this._otherdir.set(to, from)
+        this._otherdir.set(from, to)
+    }
+
+    requestLock (byWhom: string, direction: string): boolean {
         this.check(direction)
-        // already locked by me
-        if (this._lock.isLocked(byWhom)) {
-            if (this._directions.size === 1 && !this._directions.has(direction)) {
-                if (this._lock.isLockedByOtherThan(byWhom))
-                    return "CON"
-                this._directions.add(direction)
-            }
-            return "FREE"
+
+        // I already have it locked in this direction
+        const lockers = this._lockers.get(direction)
+        if (!lockers) throw new Error("no lockers!")
+        if (lockers.has(byWhom))
+            return true
+
+        // No one except me has it locked in the other direction
+        const against = this._lockers.get(this._otherdir.get(direction) as string) || new Set()
+        if (against.size === 0 || (against.size === 1 && against.has(byWhom))) {
+            lockers.add(byWhom)
+            return true
         }
 
-        // if its locked by anyone else, in the direction we are going
-        if (this._lock.isLocked() && this._directions.size === 1 && this._directions.has(direction)) {
-            this._lock.forceLock(byWhom) // add ourselves to the list
-            return "PRO"
-        }
+        debug(`Resource 'link from ${direction}' is locked, ${byWhom} should wait`)
+        this._waiters.get(direction)?.add(byWhom)
 
-        // its not locked by anyone
-        if (this._lock.requestLock(byWhom, "link from " + direction)) {
-            this._directions.add(direction)
-            return "FREE"
-        }
-
-        return "CON"
+        return false
     }
 
     unlock (byWhom: string, direction?: string) {
-        if (direction) this.check(direction)
-        // if its locked only by a single robot
-        if (this._lock.isLocked(byWhom) && !this._lock.isLockedByOtherThan(byWhom)) {
-            if (direction) {
-                this._directions.delete(direction)
+        const dirsToUnlock = Array
+            .from(this._otherdir.keys())
+            .filter(dir => !direction || dir === direction)
 
-                // if we still are holding one direction, dont release lock
-                if (this._directions.size > 0)
-                    return
-            } else {
-                this._directions.clear()
-            }
-        }
+        dirsToUnlock.forEach(dir => this._lockers.get(dir)?.delete(byWhom))
 
-        return this._lock.unlock(byWhom)
+        const waiters = new Set<string>()
+
+        dirsToUnlock.forEach(dir => {
+            const otherdirwaiters = this._waiters.get(this._otherdir.get(dir) as string)
+            otherdirwaiters?.forEach(waiter => {
+                const tmp = new Set(this._lockers.get(dir))
+                tmp.delete(waiter)
+                if (tmp.size === 0) {
+                    waiters.add(waiter)
+                    otherdirwaiters.delete(waiter)
+                }
+            })
+        })
+
+        return waiters
     }
 
     isLocked(byWhom?: string) {
-        return this._lock.isLocked(byWhom)
+        return Array.from(this._otherdir.keys()).some(dir => {
+            const lockers = this._lockers.get(dir) as Set<string>
+            return byWhom
+                ? lockers.has(byWhom)
+                : lockers.size > 0
+        })
     }
 }
 
 class OnewayLinkLock extends LinkLock {
-    requestLock (byWhom: string, direction: string): LinkLockType {
+    requestLock (byWhom: string, direction: string): boolean {
         console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
         console.warn("This will cause problems because it should stop locking here")
-        return "FREE"
+        return true
     }
 }
 
@@ -233,19 +260,26 @@ class Graferse<T>
         this.lockGroups.push(lockGroup)
     }
 
-    isLockGroupAvailable(lock: Lock, byWhom: string) {
+    getLockedGroupLock(lock: Lock, byWhom: string) {
         for(const lockGroup of this.lockGroups) {
             if (lockGroup.includes(lock)) {
                 const lockedNode = lockGroup.filter(l => l !== lock)
                                             .find(l => l.isLockedByOtherThan(byWhom))
                 if (lockedNode) {
-                    // wait on this locked node
-                    if (lockedNode.requestLock(byWhom, "lockGroup")) {
-                        throw new Error("lock was locked, but then not?")
-                    }
-                    return false
+                    return lockedNode
                 }
             }
+        }
+    }
+
+    isLockGroupAvailable(lock: Lock, byWhom: string) {
+        const lockedNode = this.getLockedGroupLock(lock, byWhom)
+        if (lockedNode) {
+            // wait on this locked node
+            if (lockedNode.requestLock(byWhom, "lockGroup")) {
+                throw new Error("lock was locked, but then not?")
+            }
+            return false
         }
         return true
     }
@@ -256,13 +290,44 @@ class Graferse<T>
     ) {
         type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
+            const waitOnObstructor = (destinationNode: T, encounteredLocks: Set<Lock>) => {
+                const lock = getLock(destinationNode)
+                const lastEncouteredLock = lock.isLockedByOtherThan(byWhom) ? lock
+                    : Array.from(encounteredLocks).at(-1) || this.getLockedGroupLock(lock, byWhom)
+                if (lastEncouteredLock) {
+                    if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
+                        throw new Error("This lock should not succeed")
+                    }
+                    return true
+                }
+            }
+
             const makePathLocker = (path: T[]) => (callback: NextNodes) => {
                 // given an index in the path, tries to lock all bidirectional edges
                 // till the last node in the path
                 // returns false if first edge fails, otherwise returns true
                 // as we can proceed some of the way in the same direction
+
+                let pivotNode: T|undefined
+                const encounteredLocks = new Set<Lock>()
                 const tryLockAllBidirectionalEdges = (subpath: T[]) => {
+                    // check if the path turns back on itself
+                    if (subpath.length > 2) {
+                        if (this.identity(subpath[0]) === this.identity(subpath[2]))
+                            pivotNode = subpath[1]
+                    }
+                    if (subpath.length > 0) {
+                        const lock = getLock(subpath[0])
+                        if (lock.isLockedByOtherThan(byWhom)) {
+                            encounteredLocks.add(lock)
+                        }
+                    }
                     if (subpath.length < 2) {
+                        // we ended our path on a bidir edge (likely a trolly location)
+                        // fail, and wait on the last lock we encountered
+                        if (waitOnObstructor(pivotNode || subpath[0], encounteredLocks)) {
+                            return false
+                        }
                         return true
                     }
                     // TODO will these locks and unlocks trigger waiters?
@@ -272,13 +337,18 @@ class Graferse<T>
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
                         console.debug(`  ok - ${desc} not bidirectional`)
+                        if (pivotNode) {
+                            if (waitOnObstructor(pivotNode, encounteredLocks)) {
+                                return false
+                            }
+                        }
                         return true
                     }
 
                     const linkLockResult = linkLock.requestLock(byWhom, fromNodeId)
 
                     // if it failed to lock because of opposing direction
-                    if (linkLockResult === "CON") {
+                    if (!linkLockResult) {
                         console.warn(`  fail - ${desc} locked against us`)
                         console.warn(linkLock.getDetails())
                         return false
@@ -356,11 +426,14 @@ class Graferse<T>
                         // TODO consider returning the length of obtained edge locks
                         // if its > 0, even though further failed, allow the againt to retain the node lock
                         // so we can enter corridors as far as we can and wait there
+                        encounteredLocks.clear()
+                        pivotNode = undefined
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
                             whoCanMoveNow.addAll(lock.unlock(byWhom))
                             break
                         }
+                        console.log(`Encountered ${encounteredLocks.size} locks along the way`)
                         nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 

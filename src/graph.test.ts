@@ -386,9 +386,9 @@ describe('ngraph', () => {
         //   ^
         //  /
         // B
-        graph.addLink('a', 'c', creator.makeLock('ac'))
-        graph.addLink('b', 'c', creator.makeLock('bc'))
-        graph.addLink('c', 'd', creator.makeLock('cd'))
+        graph.addLink('a', 'c', creator.makeLinkLock('a', 'c'))
+        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
+        graph.addLink('c', 'd', creator.makeLinkLock('c', 'd'))
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
         const s1Path = pathFinder.find('a', 'd').reverse()
@@ -759,11 +759,11 @@ describe('ngraph', () => {
 
         s1LockNext.arrivedAt(s1Path.indexOf(nodeC))
         expect(s1ForwardPath).toEqual([{index: 2, node: 'c'}, {index: 3, node: 'e'}])
-         // agent2 obtains nodeD just before stepping off bidir lane
-        expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}])
+        expect(s2ForwardPath).toEqual([])
 
         s1LockNext.arrivedAt(s1Path.indexOf(nodeE))
         expect(s1ForwardPath).toEqual([{index: 3, node: 'e'}])
+         // agent2 obtains nodeD and C after stepping off bidir lane
         expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}, {index: 1, node: 'c'}])
     })
 
@@ -1054,15 +1054,18 @@ describe('ngraph', () => {
 
         agent1at('e')
         expect(nextNodes1).toEqual([{index: 4, node: 'e'}, {index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 0, node: 'g'}, {index: 1, node: 'f'}])  // seems a little early to obtain nodeF
-
-        agent2at('f')
-        expect(nextNodes1).toEqual([{index: 4, node: 'e'}, {index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 1, node: 'f'}]) // cant get E because agent1 is tehre
+        expect(nextNodes2).toEqual([{index: 0, node: 'g'}])
 
         agent1at('z')
         expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
-        expect(nextNodes2).toEqual([{index: 1, node: 'f'}, {index: 2, node: 'e'}]) // now we can move to E
+        expect(nextNodes2).toEqual([{index: 0, node: 'g'}, {index: 1, node: 'f'}]) // now we can move to F
+        agent2at('f')
+        expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
+        expect(nextNodes2).toEqual([{index: 1, node: 'f'}, {index: 2, node: 'e'}])
+
+        agent2at('e')
+        expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
+        expect(nextNodes2).toEqual([{index: 2, node: 'e'}, {index: 3, node: 'd'}])
     })
     // TODO add test that shows we are waiting on distant edge
     //test('two robots opposing directions in a narrow corridor', () => {
@@ -1153,6 +1156,73 @@ describe('ngraph', () => {
             lockNext.arrivedAt(i)
         }
     })
+    test('agent encountered on bidir path with reversal', () => {
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
+
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+
+        // A ----> B <----> C
+        //         |
+        //         v 
+        //         D
+
+        const lockAB = creator.makeLinkLock('a', 'b', false)
+        const lockBC = creator.makeLinkLock('b', 'c', true)
+        const lockCD = creator.makeLinkLock('b', 'd', false)
+
+        const linkAB = graph.addLink('a', 'b', lockAB)
+        const linkBC = graph.addLink('b', 'c', lockBC)
+        const linkBD = graph.addLink('b', 'd', lockCD)
+
+        const linkDB = graph.addLink('d', 'b', lockCD)
+        const linkCB = graph.addLink('c', 'b', lockBC)
+        const linkBA = graph.addLink('b', 'a', lockAB)
+
+        const s1Path = [nodeA, nodeB, nodeC, nodeB, nodeD]
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        var s1ForwardPath: Array<NextNode> = []
+        const s1LockNext = makeLocker("agent1").makePathLocker(s1Path)((nextNodes) => { s1ForwardPath = nextNodes })
+
+        //console.dir({nodeC}, {depth: null})
+        expect(nodeC.data.requestLock('agent2', 'static')).toBeTruthy()
+        // all nodes are unlocked
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeTruthy() // locked by static agent2
+        expect(nodeD.data.isLocked()).toBeFalsy()
+        // all links are unlocked
+        expect(linkAB.data.isLocked()).toBeFalsy()
+        expect(linkBC.data.isLocked()).toBeFalsy()
+        expect(linkBD.data.isLocked()).toBeFalsy()
+        expect(linkDB.data.isLocked()).toBeFalsy()
+        expect(linkCB.data.isLocked()).toBeFalsy()
+        expect(linkBA.data.isLocked()).toBeFalsy()
+
+        expect(s1ForwardPath).toEqual([])
+
+        s1LockNext.arrivedAt(s1Path.indexOf(nodeA))
+        // its current and next nodes are locked
+        // nodeB omitted becuase agent encountered on bidir path
+        expect(s1ForwardPath).toEqual([{index: 0, node: 'a'}/*, {index: 1, node: 'b'}*/])
+        expect(nodeA.data.isLocked()).toBeTruthy()
+        expect(nodeB.data.isLocked()).toBeFalsy()
+        expect(nodeC.data.isLocked()).toBeTruthy() // still locked by agent2
+        expect(nodeD.data.isLocked()).toBeFalsy()
+
+        // all links are locked until path ends
+        expect(linkAB.data.isLocked()).toBeFalsy() // its oneway, never locked
+        expect(linkBC.data.isLocked()).toBeFalsy()
+        expect(linkBD.data.isLocked()).toBeFalsy()
+        expect(linkDB.data.isLocked()).toBeFalsy()
+        expect(linkCB.data.isLocked()).toBeFalsy()
+        expect(linkBA.data.isLocked()).toBeFalsy() // its oneway, never locked
+    })
 })
 
 describe('Components', () => {
@@ -1173,7 +1243,7 @@ describe('Components', () => {
             const linkLock = creator.makeLinkLock('up', 'down') // by default is directed edge
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
-            expect(linkLock.requestLock('test', 'up')).toEqual("FREE")
+            expect(linkLock.requestLock('test', 'up')).toBeTruthy()
             expect(logSpyWarn).toHaveBeenCalled()
             expect(logSpyError).toHaveBeenCalled()
 
@@ -1186,29 +1256,33 @@ describe('Components', () => {
             test('single owner can lock both directions', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeTruthy()
             })
             test('owner cannot lock both directions if multiple owners', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("CON")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent2', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeFalsy()
+                expect(linkLock.isWaiting('agent1')).toBeTruthy()
             })
             test('agent cannot lock if both directions already locked', () => {
                 const creator = new Graferse<Node>(node => node.id)
                 const linkLock = creator.makeLinkLock('up', 'down', true) // is bidirectional
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                expect(linkLock.requestLock('agent1', 'down')).toEqual("FREE")
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.requestLock('agent1', 'down')).toBeTruthy()
+                expect(linkLock.requestLock('agent2', 'up')).toBeFalsy()
+                expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
-                linkLock.unlock('agent1', 'up')
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("CON")
+                expect(linkLock.unlock('agent1', 'up')).toEqual(new Set())
+                expect(linkLock.requestLock('agent2', 'up')).toBeFalsy()
+                expect(linkLock.isWaiting('agent2')).toBeTruthy()
 
-                expect(linkLock.requestLock('agent1', 'up')).toEqual("FREE")
-                linkLock.unlock('agent1', 'down')
-                expect(linkLock.requestLock('agent2', 'up')).toEqual("PRO")
+                expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+                expect(linkLock.unlock('agent1', 'down')).toEqual(new Set(["agent2"]))
+                expect(linkLock.requestLock('agent2', 'up')).toBeTruthy()
+                expect(linkLock.isWaiting('agent2')).toBeFalsy()
             })
         })
     })
