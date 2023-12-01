@@ -1247,9 +1247,7 @@ describe('Components', () => {
             expect(logSpyWarn).toHaveBeenCalled()
             expect(logSpyError).toHaveBeenCalled()
 
-            // needed for bun until resetAllMocks is available
-            logSpyWarn.mockReset()
-            logSpyError.mockReset()
+            jest.resetAllMocks()
         })
 
         describe('Locking in both directions', () => {
@@ -1352,8 +1350,7 @@ describe('Exceptions', () => {
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        // needed for bun until resetAllMocks is available
-        logSpyError.mockReset()
+        jest.resetAllMocks()
     })
     test('arrivedAt bounds', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
