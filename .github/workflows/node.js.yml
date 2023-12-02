@@ -53,6 +53,11 @@ jobs:
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: ${{ matrix.bun-version }}
+    - uses: actions/cache@v3
+      with:
+        path: ~/.bun/install/cache
+        key: "bun-${{ hashFiles('package-lock.json') }}"
+        restore-keys: "bun-"
     - run: bun install
     - run: bun test
 
