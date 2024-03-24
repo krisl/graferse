@@ -25,7 +25,7 @@ jobs:
       with:
         show-progress: false
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -52,6 +52,11 @@ jobs:
     - uses: oven-sh/setup-bun@v1
       with:
         bun-version: ${{ matrix.node-version }}
+    - uses: actions/cache@v3
+      with:
+        path: ~/.bun/install/cache
+        key: "bun-${{ hashFiles('package-lock.json') }}"
+        restore-keys: "bun-"
     - run: bun install
     - run: bun test
 
