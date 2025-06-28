@@ -24,7 +24,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/debug": "^4.1.8",
+    "@types/debug": "^4.1.12",
     "@types/jest": "^29.5.0",
     "jest": "^29.5.0",
     "ngraph.graph": "^20.0.1",
@@ -35,6 +35,6 @@
     "typescript": "^5.0.3"
   },
   "dependencies": {
-    "debug": "^4.3.4"
+    "debug": "^4.4.1"
   }
 }
