@@ -52,7 +52,7 @@ jobs:
         show-progress: false
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: ${{ matrix.node-version }}
+        bun-version: ${{ matrix.bun-version }}
     - run: bun install
     - run: bun test
 
