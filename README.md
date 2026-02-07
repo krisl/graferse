@@ -19,3 +19,5 @@ As a traffic coordination system:
 ## Tests
 
   `npm test`
+or
+  `bun test`
