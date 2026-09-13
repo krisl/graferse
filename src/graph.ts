@@ -8,6 +8,13 @@ function addAll<T>(target: Set<T>, source: Set<T> | undefined) {
     }
 }
 
+let warnedLockNext = false
+function warnLockNextDeprecated() {
+    if (warnedLockNext) return
+    warnedLockNext = true
+    console.warn("lockNext is deprecated, please use arrivedAt")
+}
+
 function stringify(x: any) {
     return typeof x === 'string'
         ? x
@@ -357,7 +364,7 @@ class Graferse<T>
                     const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
-                        console.debug(`  ok - ${desc} not bidirectional`)
+                        debug(`  ok - ${desc} not bidirectional`)
                         if (pivotNode) {
                             if (waitOnObstructor(pivotNode, encounteredLocks)) {
                                 return false
@@ -370,8 +377,8 @@ class Graferse<T>
 
                     // if it failed to lock because of opposing direction
                     if (!linkLockResult) {
-                        console.warn(`  fail - ${desc} locked against us`)
-                        console.warn(linkLock.getDetails())
+                        debug(`  fail - ${desc} locked against us`)
+                        debug('%o', linkLock.getDetails())
                         return false
                     }
 
@@ -380,7 +387,7 @@ class Graferse<T>
                         return false
                     }
 
-                    console.debug(`  ok - ${desc} obtained`)
+                    debug(`  ok - ${desc} obtained`)
                     return true
                 }
 
@@ -402,7 +409,7 @@ class Graferse<T>
                 }
 
                 const lockNext = (currentNode: string) => {
-                    console.warn("lockNext is deprecated, please use arrivedAt")
+                    warnLockNextDeprecated()
                     const currentIdx = path.findIndex(node => this.identity(node) === currentNode)
                     if (currentIdx === -1) {
                         console.error(`  You're claiming to be at a node not on your path`)
@@ -460,7 +467,7 @@ class Graferse<T>
                             addAll(whoCanMoveNow, lock.unlock(byWhom))
                             break
                         }
-                        console.log(`Encountered ${encounteredLocks.size} locks along the way`)
+                        debug(`Encountered ${encounteredLocks.size} locks along the way`)
                         nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 
