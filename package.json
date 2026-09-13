@@ -12,14 +12,14 @@
     "build": "tsc",
     "lint": "tslint -p tsconfig.json",
     "test": "jest",
-    "test:cover": "jest --coverage"
+    "test:cover": "jest --coverage",
+    "prepublishOnly": "npm test && npm run lint",
+    "preversion": "npm run lint"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/krisl/graferse"
   },
-  "prepublishOnly": "npm test && npm run lint",
-  "preversion": "npm run lint",
   "keywords": [],
   "author": "",
   "license": "ISC",
