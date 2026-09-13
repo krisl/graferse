@@ -69,6 +69,21 @@ class Lock {
         }
     }
 
+    // drops a wait without releasing anything byWhom has locked
+    stopWaiting (byWhom: string) {
+        if (!this.waiting.delete(byWhom)) {
+            return
+        }
+        debug(`stopped waiting ${this.id} for ${byWhom}`)
+
+        if (!this.isLocked()) {
+            // same as unlock, the remaining waiters get to try again
+            const waiters = new Set(this.waiting)
+            this.waiting.clear()
+            return waiters
+        }
+    }
+
     isLocked(byWhom?: string) {
         return byWhom
             ? this.lockedBy.has(byWhom)
@@ -256,6 +271,17 @@ class Graferse<T>
         this.notifyWaiters(whoCanMoveNow)
     }
 
+    // a waiter can be parked on a lock that is not on its own path, eg a lock
+    // group member.  such a wait outlives clearAllPathLocks unless swept here,
+    // and would later replay an abandoned path
+    stopWaitingEverywhere(byWhom: string) {
+        const whoCanMoveNow = new Set<string>()
+        for (const lock of this.locks) {
+            whoCanMoveNow.addAll(lock.stopWaiting(byWhom))
+        }
+        return whoCanMoveNow
+    }
+
     setLockGroup(lockGroup: Lock[]) {
         this.lockGroups.push(lockGroup)
     }
@@ -365,12 +391,18 @@ class Graferse<T>
 
                 const clearAllPathLocks = () => {
                     debug(`── clearAllPathLocks | ${byWhom} ──`);
+                    // this path is over, so it must never be replayed
+                    this.lastCallCache.delete(byWhom)
                     const whoCanMoveNow = new Set<string>()
                     for (let i = 0; i < path.length; i++) {
                         whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
                         if (i < path.length -1) // except the last node
                             whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
                     }
+                    whoCanMoveNow.addAll(this.stopWaitingEverywhere(byWhom))
+                    // link locks can hand us back our own name, and we have
+                    // nothing left to replay
+                    whoCanMoveNow.delete(byWhom)
                     this.notifyWaiters(whoCanMoveNow)
                 }
 

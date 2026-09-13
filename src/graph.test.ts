@@ -42,6 +42,53 @@ describe('Graferse class', () => {
         // when agent1 releases the lock, agent2 is returned for notification
         expect(lock1.unlock("agent1")).toEqual(new Set(["agent2"]))
     })
+    test('an abandoned path is not revived by a lock group waiter', () => {
+        const creator = new Graferse<Lock>(lock => names.get(lock) as string)
+        const getLockForLink = (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id)
+
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeX = creator.makeLock('nodeX')
+        const nodeY = creator.makeLock('nodeY')
+        const names = new Map<Lock,string>([
+            [nodeA, 'nodeA'], [nodeB, 'nodeB'], [nodeX, 'nodeX'], [nodeY, 'nodeY'],
+        ])
+
+        // nodeB and nodeY exclude each other, but sit on separate paths
+        creator.setLockGroup([nodeB, nodeY])
+
+        const makeLocker = creator.makeMakeLocker(node => node, getLockForLink)
+        const path1 = [nodeA, nodeB]
+        const path2 = [nodeX, nodeY]
+
+        const agent1At = makeLocker('agent1').makePathLocker(path1)((_: NextNode[]) => {})
+        const agent2At = makeLocker('agent2').makePathLocker(path2)((_: NextNode[]) => {})
+
+        // agent2 takes nodeX and nodeY
+        agent2At.arrivedAt(0)
+        expect(nodeX.isLocked()).toBeTruthy()
+        expect(nodeY.isLocked()).toBeTruthy()
+
+        // agent1 takes nodeA, is blocked at nodeB, and waits on nodeY,
+        // which is not on its own path
+        agent1At.arrivedAt(0)
+        expect(nodeA.isLocked()).toBeTruthy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeY.waiting.has('agent1')).toBeTruthy()
+
+        // agent1 gives up its path entirely
+        agent1At.clearAllPathLocks()
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeY.waiting.has('agent1')).toBeFalsy()
+
+        // releasing nodeY must not replay agent1's dead path
+        agent2At.clearAllPathLocks()
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked()).toBeFalsy()
+        expect(nodeX.isLocked()).toBeFalsy()
+        expect(nodeY.isLocked()).toBeFalsy()
+    })
     test('clearAllLocks', () => {
         const creator = new Graferse<Node>(node => node.id)
         const lock1 = creator.makeLock('lock1')
