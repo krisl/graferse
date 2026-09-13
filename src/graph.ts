@@ -1,15 +1,10 @@
 import makeDebug from 'debug'
 const debug = makeDebug('graferse')
 
-declare global {
-    interface Set<T> {
-        addAll(s: Set<T> | undefined): void
-    }
-}
-
-Set.prototype.addAll = function(s) {
-    if (s) {
-        s.forEach(item => this.add(item))
+// a library must not touch built in prototypes, so this stays a plain function
+function addAll<T>(target: Set<T>, source: Set<T> | undefined) {
+    if (source) {
+        source.forEach(item => target.add(item))
     }
 }
 
@@ -263,10 +258,10 @@ class Graferse<T>
         debug(`── clearAllLocks | ${byWhom} ──`);
         const whoCanMoveNow = new Set<string>()
         for (const lock of this.locks) {
-            whoCanMoveNow.addAll(lock.unlock(byWhom))
+            addAll(whoCanMoveNow, lock.unlock(byWhom))
         }
         for (const linkLock of this.linkLocks) {
-            whoCanMoveNow.addAll(linkLock.unlock(byWhom))
+            addAll(whoCanMoveNow, linkLock.unlock(byWhom))
         }
         this.notifyWaiters(whoCanMoveNow)
     }
@@ -277,7 +272,7 @@ class Graferse<T>
     stopWaitingEverywhere(byWhom: string) {
         const whoCanMoveNow = new Set<string>()
         for (const lock of this.locks) {
-            whoCanMoveNow.addAll(lock.stopWaiting(byWhom))
+            addAll(whoCanMoveNow, lock.stopWaiting(byWhom))
         }
         return whoCanMoveNow
     }
@@ -395,11 +390,11 @@ class Graferse<T>
                     this.lastCallCache.delete(byWhom)
                     const whoCanMoveNow = new Set<string>()
                     for (let i = 0; i < path.length; i++) {
-                        whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
+                        addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
                         if (i < path.length -1) // except the last node
-                            whoCanMoveNow.addAll(getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                            addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom))
                     }
-                    whoCanMoveNow.addAll(this.stopWaitingEverywhere(byWhom))
+                    addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
                     // link locks can hand us back our own name, and we have
                     // nothing left to replay
                     whoCanMoveNow.delete(byWhom)
@@ -435,12 +430,12 @@ class Graferse<T>
                         // unlock all edges before current position
                         if (i > 0 && i <= currentIdx) {
                             const fromNodeId = stringify(this.identity(path[i-1]))
-                            whoCanMoveNow.addAll(getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
+                            addAll(whoCanMoveNow, getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
                         }
 
                         // if its behind the firstToLock, unlock it
                         if (i < firstToLock) {
-                            whoCanMoveNow.addAll(getLock(path[i]).unlock(byWhom))
+                            addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
                             continue
                         }
 
@@ -462,7 +457,7 @@ class Graferse<T>
                         pivotNode = undefined
                         if (!tryLockAllBidirectionalEdges(path.slice(i))) {
                             // unlock previously obtained node lock
-                            whoCanMoveNow.addAll(lock.unlock(byWhom))
+                            addAll(whoCanMoveNow, lock.unlock(byWhom))
                             break
                         }
                         console.log(`Encountered ${encounteredLocks.size} locks along the way`)
