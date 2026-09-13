@@ -1,6 +1,8 @@
 import makeDebug from 'debug'
 const debug = makeDebug('graferse')
 
+type id = string | number
+
 // a library must not touch built in prototypes, so this stays a plain function
 function addAll<T>(target: Set<T>, source: Set<T> | undefined) {
     if (source) {
@@ -15,7 +17,7 @@ function warnLockNextDeprecated() {
     console.warn("lockNext is deprecated, please use arrivedAt")
 }
 
-function stringify(x: any) {
+function stringify(x: id | id[]) {
     return typeof x === 'string'
         ? x
         : JSON.stringify(x)
@@ -55,11 +57,11 @@ class Lock {
 
     unlock (byWhom: string) {
         if (this.lockedBy.delete(byWhom)) {
-          debug(`unlocked ${this.id} for ${byWhom}`)
+            debug(`unlocked ${this.id} for ${byWhom}`)
         }
 
         if (this.waiting.delete(byWhom)) {
-          debug(`stopped waiting ${this.id} for ${byWhom}`)
+            debug(`stopped waiting ${this.id} for ${byWhom}`)
         }
 
         if (!this.isLocked()) {
@@ -200,12 +202,11 @@ class OnewayLinkLock extends LinkLock {
     // nothing to reserve and nobody to wait for.  Traversal is governed by the
     // node locks alone.  Callers skip this via the instanceof check in
     // tryLockAllBidirectionalEdges, so it is only reached directly.
-    requestLock (byWhom: string, direction: string): boolean {
+    requestLock (_byWhom: string, _direction: string): boolean {
         return true
     }
 }
 
-type id = string | number
 type NextNode = { node: id, index: number }
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 // where T is the type you will supply the path in
@@ -294,7 +295,7 @@ class Graferse<T>
         for(const lockGroup of this.lockGroups) {
             if (lockGroup.includes(lock)) {
                 const lockedNode = lockGroup.filter(l => l !== lock)
-                                            .find(l => l.isLockedByOtherThan(byWhom))
+                    .find(l => l.isLockedByOtherThan(byWhom))
                 if (lockedNode) {
                     return lockedNode
                 }
@@ -315,8 +316,8 @@ class Graferse<T>
     }
 
     makeMakeLocker (
-            getLock: (x: T) => Lock,                   // given a T, gives you a Lock
-            getLockForLink: (from: T, to: T) => LinkLock,
+        getLock: (x: T) => Lock,                   // given a T, gives you a Lock
+        getLockForLink: (from: T, to: T) => LinkLock,
     ) {
         type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
