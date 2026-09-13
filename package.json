@@ -1,7 +1,7 @@
 {
   "name": "graferse",
   "version": "0.0.1-4",
-  "description": "",
+  "description": "Traverses a path through a directed graph, yielding to occupied nodes",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,7 +20,17 @@
     "type": "git",
     "url": "https://github.com/krisl/graferse"
   },
-  "keywords": [],
+  "keywords": [
+    "graph",
+    "traversal",
+    "pathfinding",
+    "multi-agent",
+    "locking",
+    "mutex",
+    "deadlock",
+    "agv",
+    "robotics"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
