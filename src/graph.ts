@@ -265,6 +265,9 @@ class Graferse<T>
 
     clearAllLocks(byWhom: string) {
         debug(`── clearAllLocks | ${byWhom} ──`);
+        // nothing is left to replay, and the closure would otherwise be held
+        // for the life of the graph
+        this.lastCallCache.delete(byWhom)
         const whoCanMoveNow = new Set<string>()
         for (const lock of this.locks) {
             addAll(whoCanMoveNow, lock.unlock(byWhom))
