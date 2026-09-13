@@ -9,6 +9,10 @@ const getLockForLink = (from: Node, to: Node) => {
     return link?.data
 }
 
+// the removed lockNext took a node id, where arrivedAt takes a path index
+const arriveByNodeId = (arrivedAt: (i: number) => void, path: Array<Node<Lock>>) =>
+    (id: string) => arrivedAt(path.findIndex(node => node.id === id))
+
 describe('Graferse class', () => {
     test('creating locks', () => {
         const creator = new Graferse<Node>(node => node.id)
@@ -215,7 +219,7 @@ describe('Graferse class', () => {
         expect(lock1.requestLock("agent2", "lock1")).toBeFalsy()
 
         // clearing throws, because lock1 was requested directly above
-        // and no call to lockNext exists to call again
+        // and no call to arrivedAt exists to call again
         expect(() => creator.clearAllLocks("agent1")).toThrow()
 
         // but now agent2 can obtain the lock
@@ -1075,8 +1079,10 @@ describe('ngraph', () => {
         const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         let nextNodes1: Array<NextNode> = []
         let nextNodes2: Array<NextNode> = []
-        const agent1at = makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).lockNext
-        const agent2at = makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).lockNext
+        const agent1at = arriveByNodeId(
+            makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).arrivedAt, path1)
+        const agent2at = arriveByNodeId(
+            makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).arrivedAt, path2)
 
         expect(nextNodes1).toEqual([])
         expect(nextNodes2).toEqual([])
@@ -1177,8 +1183,10 @@ describe('ngraph', () => {
         const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         let nextNodes1: Array<NextNode> = []
         let nextNodes2: Array<NextNode> = []
-        const agent1at = makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).lockNext
-        const agent2at = makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).lockNext
+        const agent1at = arriveByNodeId(
+            makeLocker("agent1").makePathLocker(path1)((nn) => { nextNodes1 = nn }).arrivedAt, path1)
+        const agent2at = arriveByNodeId(
+            makeLocker("agent2").makePathLocker(path2)((nn) => { nextNodes2 = nn }).arrivedAt, path2)
 
         expect(nextNodes1).toEqual([])
         expect(nextNodes2).toEqual([])
@@ -1464,46 +1472,6 @@ describe('Listeners', () => {
 })
 
 describe('Exceptions', () => {
-    test('node not on path', () => {
-        const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock(from.id, to.id)
-        }
-        const creator = new Graferse<Lock>(node => node.id)
-        const nodeA = creator.makeLock('nodeA')
-        const nodeB = creator.makeLock('nodeB')
-        const nodeC = creator.makeLock('nodeC')
-        const nodeX = creator.makeLock('nodeX')
-
-        const makeLocker = creator.makeMakeLocker(
-            node => node,
-            (from, to) => creator.makeLinkLock(from.id, to.id))
-
-        const test1Path = [nodeA, nodeB, nodeC]
-        const test1At = makeLocker("test1").makePathLocker(test1Path)(
-            (nextNodes) => {}
-        )
-
-        const logSpyError = jest.spyOn(console, 'error').mockImplementation()
-        expect(nodeA.isLocked()).toBeFalsy()
-        expect(nodeB.isLocked()).toBeFalsy()
-        expect(nodeC.isLocked()).toBeFalsy()
-
-        expect(() => test1At.lockNext('nodeB')).not.toThrow()
-        expect(() => test1At.arrivedAt(test1Path.indexOf(nodeB))).not.toThrow()
-        expect(logSpyError).not.toHaveBeenCalled()
-        expect(nodeA.isLocked()).toBeFalsy()
-        expect(nodeB.isLocked()).toBeTruthy()
-        expect(nodeC.isLocked()).toBeTruthy()
-
-        expect(() => test1At.lockNext('nodeX')).not.toThrow()
-        expect(logSpyError).toHaveBeenCalled()
-        // and all nodes are unlocked again
-        expect(nodeA.isLocked()).toBeFalsy()
-        expect(nodeB.isLocked()).toBeFalsy()
-        expect(nodeC.isLocked()).toBeFalsy()
-
-        jest.resetAllMocks()
-    })
     test('arrivedAt bounds', () => {
         const getLockForLink = (from: Lock, to: Lock) => {
             return creator.makeLinkLock(from.id, to.id)

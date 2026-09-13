@@ -10,14 +10,7 @@ function addAll<T>(target: Set<T>, source: Set<T> | undefined) {
     }
 }
 
-let warnedLockNext = false
-function warnLockNextDeprecated() {
-    if (warnedLockNext) return
-    warnedLockNext = true
-    console.warn("lockNext is deprecated, please use arrivedAt")
-}
-
-function stringify(x: id | id[]) {
+function stringify(x: id) {
     return typeof x === 'string'
         ? x
         : JSON.stringify(x)
@@ -460,18 +453,6 @@ class Graferse<T>
                     this.notifyWaiters(whoCanMoveNow)
                 }
 
-                const lockNext = (currentNode: string) => {
-                    warnLockNextDeprecated()
-                    const currentIdx = path.findIndex(node => this.identity(node) === currentNode)
-                    if (currentIdx === -1) {
-                        console.error(`  You're claiming to be at a node not on your path`)
-                        console.error(`  Couldnt find "${currentNode}" in ${stringify(path.map(this.identity))}`)
-                        clearAllPathLocks()
-                        return
-                    }
-                    arrivedAt(currentIdx)
-                }
-
                 const arrivedAt = (currentIdx: number) => {
                     debug(`┌─ Lock | ${byWhom} ${currentIdx} ${this.identity(path[currentIdx])} ──`);
                     this.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
@@ -535,7 +516,6 @@ class Graferse<T>
                 }
 
                 return {
-                    lockNext,
                     arrivedAt,
                     clearAllPathLocks,
                 }
