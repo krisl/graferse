@@ -252,6 +252,22 @@ class Graferse<T>
         }
     }
 
+    // Each waiter is told to try again by replaying its last arrivedAt, and
+    // that call ends by notifying its own waiters.  So a single release runs
+    // the whole freed chain synchronously, nested one stack frame deep per
+    // agent, before the original caller returns.  Three limits follow:
+    //
+    //   - there is no depth guard, so a long chain of freed agents can reach
+    //     the stack limit
+    //   - agents that keep freeing each other are not detected, only the lock
+    //     state changing at each step ends the cascade
+    //   - a listener or callback that does heavy work blocks every agent still
+    //     queued behind it
+    //
+    // It throws when a waiter has no cached call, which happens if you took a
+    // lock with requestLock directly instead of through arrivedAt.  There is
+    // no way to tell such an agent to retry, so the alternative is a silent
+    // stall.
     notifyWaiters(whoCanMoveNow: Set<string>) {
         for (const waiter of whoCanMoveNow) {
             const lastCall = this.lastCallCache.get(waiter)
@@ -291,9 +307,13 @@ class Graferse<T>
 
     // At most one agent may hold any node in the group, so a group behaves as
     // one node spread over several places.  Two groups joined by edges running
-    // in BOTH directions can deadlock, and it is the caller's job to avoid
-    // that.  See findLockGroupConflicts, and the lock group notes in the
-    // README.
+    // in BOTH directions can deadlock, which setTopology solves.
+    //
+    // Exclusion is per group and does NOT spread between groups that share a
+    // node.  With groups [A,B] and [B,C], an agent holding A blocks B, but
+    // leaves C free.  The groups do not merge into one.  setTopology reasons
+    // about a quotient graph, where contraction WOULD merge them, so its
+    // reserve through walk is only exact while groups stay disjoint.
     setLockGroup(lockGroup: Lock[]) {
         this.lockGroups.push(lockGroup)
     }

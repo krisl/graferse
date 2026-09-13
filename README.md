@@ -60,18 +60,66 @@ reverse, and both sit forever with `X` standing empty behind `agent1`.
 Avoiding this is the network builder's job. Graferse never sees your graph,
 only locks and a `getLockForLink` callback, so it cannot check on your behalf.
 
-### Checking a network
+### Solving it with setTopology
 
-Hand the directed edges to `findLockGroupConflicts` and it reports every
-offending pair, with the edges to blame:
+Hand Graferse the directed edges once, when you build the network:
 
 ```js
-const conflicts = creator.findLockGroupConflicts([
+const conflicts = creator.setTopology([
     [X, westP], [westP, westQ], [eastQ, eastP],
 ])
 // [{ groups: [[westP, eastP], [westQ, eastQ]],
 //    edges:  [[westP, westQ], [eastQ, eastP]] }]
 ```
 
-An empty result means no two groups are joined in both directions. Run it once
-when you build the network, not per traversal.
+Now the reservation walk can see the quotient edge. A one way link is no
+longer treated as a safe state when it steps between two such groups, so
+`agent2` is refused cell Q while cell P beyond it is taken. It waits outside
+instead of being trapped, `agent1` runs the corridor, and both get through.
+
+The return value lists every offending pair with the edges to blame, so
+`setTopology` doubles as the check. An empty result means no two groups are
+joined in both directions.
+
+To only report and not change traversal, opt out:
+
+```js
+creator.setTopology(edges, { reserveThroughLockGroups: false })
+```
+
+Then avoiding the deadlock is yours to do. `findLockGroupConflicts(edges)`
+reports the same pairs without touching traversal at all.
+
+Graferse still never holds your graph. Without `setTopology` nothing changes.
+
+### Overlapping groups
+
+Exclusion is per group and does **not** spread between groups that share a
+node. With groups `[A, B]` and `[B, C]`, an agent holding `A` blocks `B` but
+leaves `C` free. The two groups do not merge into one.
+
+`setTopology` reasons about the quotient graph, where contracting the groups
+*would* merge them. So its reserve through walk is only exact while groups
+stay disjoint. Prefer disjoint groups.
+
+## Notifications
+
+When an agent releases a lock, every agent freed by it is told to try again by
+replaying its last `arrivedAt`, and that call ends by notifying its own
+waiters. A single release therefore runs the whole freed chain
+**synchronously**, nested one stack frame deep per agent, before your call
+returns.
+
+Three limits follow:
+
+- there is no depth guard, so a long chain of freed agents can reach the stack
+  limit
+- agents that keep freeing each other are not detected; only the lock state
+  changing at each step ends the cascade
+- a listener or callback that does heavy work blocks every agent still queued
+  behind it
+
+`notifyWaiters` throws when a waiter has no cached call. That happens if you
+took a lock with `requestLock` directly rather than through `arrivedAt`: there
+is no way to tell such an agent to retry, and the alternative is a silent
+stall.
