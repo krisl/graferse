@@ -208,6 +208,11 @@ class OnewayLinkLock extends LinkLock {
 }
 
 type NextNode = { node: id, index: number }
+// two lock groups that can trap agents in each other, and the edges to blame
+type LockGroupConflict = {
+    groups: [Lock[], Lock[]]
+    edges: [[Lock, Lock], [Lock, Lock]]
+}
 // TODO add a keep alive where owners need to report in periodically, else their locks will be freed
 // where T is the type you will supply the path in
 class Graferse<T>
@@ -287,8 +292,52 @@ class Graferse<T>
         return whoCanMoveNow
     }
 
+    // At most one agent may hold any node in the group, so a group behaves as
+    // one node spread over several places.  Two groups joined by edges running
+    // in BOTH directions can deadlock, and it is the caller's job to avoid
+    // that.  See findLockGroupConflicts, and the lock group notes in the
+    // README.
     setLockGroup(lockGroup: Lock[]) {
         this.lockGroups.push(lockGroup)
+    }
+
+    // Contract each lock group to a single node and you get a quotient graph.
+    // A pair of groups joined in both directions becomes a bidirectional edge
+    // there, but the real edges are one way, so tryLockAllBidirectionalEdges
+    // never sees it and nothing reserves through to a safe state.  Two agents
+    // approaching from opposite ends then wedge.
+    //
+    // Graferse never sees the topology, only locks and a getLockForLink
+    // callback, so the caller must supply the directed edges.
+    findLockGroupConflicts(edges: Array<[Lock, Lock]>): LockGroupConflict[] {
+        const groupsOf = (lock: Lock) =>
+            this.lockGroups.filter(group => group.includes(lock))
+
+        // "from group index > to group index" -> an edge that produced it
+        const between = new Map<string, [Lock, Lock]>()
+        for (const [from, to] of edges) {
+            for (const fromGroup of groupsOf(from)) {
+                for (const toGroup of groupsOf(to)) {
+                    if (fromGroup === toGroup) continue
+                    const key = `${this.lockGroups.indexOf(fromGroup)}>${this.lockGroups.indexOf(toGroup)}`
+                    if (!between.has(key)) between.set(key, [from, to])
+                }
+            }
+        }
+
+        const conflicts: LockGroupConflict[] = []
+        for (const [key, forward] of between) {
+            const [a, b] = key.split('>').map(Number)
+            if (a >= b) continue // report each pair once
+            const back = between.get(`${b}>${a}`)
+            if (back) {
+                conflicts.push({
+                    groups: [this.lockGroups[a], this.lockGroups[b]],
+                    edges: [forward, back],
+                })
+            }
+        }
+        return conflicts
     }
 
     getLockedGroupLock(lock: Lock, byWhom: string) {
@@ -501,4 +550,4 @@ class Graferse<T>
 }
 
 export { Graferse }
-export type { Lock, LinkLock, NextNode }
+export type { Lock, LinkLock, NextNode, LockGroupConflict }

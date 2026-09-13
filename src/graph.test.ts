@@ -93,6 +93,106 @@ describe('Graferse class', () => {
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
     })
+    describe('findLockGroupConflicts', () => {
+        // Two lock groups joined by edges running in both directions.  Each
+        // group is one physical cell that only one agent may occupy.
+        //
+        //          group P                     group Q
+        //     +-----------------+         +-----------------+
+        //  X->|      westP      |-------->|      westQ      |
+        //     |      eastP      |<--------|      eastQ      |
+        //     +-----------------+         +-----------------+
+        //
+        //  agent1:  X -> westP -> westQ       enters P, then Q
+        //  agent2:       eastQ -> eastP       enters Q, then P
+        const buildCells = () => {
+            const creator = new Graferse<Lock>(lock => names.get(lock) as string)
+            const X     = creator.makeLock('X')
+            const westP = creator.makeLock('westP')
+            const westQ = creator.makeLock('westQ')
+            const eastQ = creator.makeLock('eastQ')
+            const eastP = creator.makeLock('eastP')
+            const names = new Map<Lock,string>()
+            names.set(X, 'X')
+            names.set(westP, 'westP')
+            names.set(westQ, 'westQ')
+            names.set(eastQ, 'eastQ')
+            names.set(eastP, 'eastP')
+            return { creator, X, westP, westQ, eastQ, eastP, names }
+        }
+
+        test('flags two groups joined in both directions', () => {
+            const { creator, X, westP, westQ, eastQ, eastP, names } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+
+            const conflicts = creator.findLockGroupConflicts([
+                [X, westP], [westP, westQ], [eastQ, eastP],
+            ])
+
+            expect(conflicts).toHaveLength(1)
+            expect(conflicts[0].groups).toEqual([[westP, eastP], [westQ, eastQ]])
+            expect(conflicts[0].edges.map(e => e.map(l => names.get(l))))
+                .toEqual([['westP', 'westQ'], ['eastQ', 'eastP']])
+        })
+
+        test('accepts the same groups when traffic runs one way', () => {
+            const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+
+            // drop the return edge, so nothing crosses back from Q to P
+            expect(creator.findLockGroupConflicts([
+                [X, westP], [westP, westQ], [eastP, eastQ],
+            ])).toEqual([])
+        })
+
+        test('ignores edges inside one group, and groups with no edges', () => {
+            const { creator, westP, eastP, westQ, eastQ } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+
+            expect(creator.findLockGroupConflicts([
+                [westP, eastP], [eastP, westP],
+            ])).toEqual([])
+            expect(creator.findLockGroupConflicts([])).toEqual([])
+        })
+
+        test('a network it rejects does deadlock, with a cell to spare', () => {
+            const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+            const edges: Array<[Lock, Lock]> = [[X, westP], [westP, westQ], [eastQ, eastP]]
+            expect(creator.findLockGroupConflicts(edges)).toHaveLength(1)
+
+            const makeLocker = creator.makeMakeLocker(
+                node => node,
+                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+            )
+            let seen1: string[] = [], seen2: string[] = []
+            const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(
+                nn => { seen1 = nn.map(n => String(n.node)) })
+            const agent2 = makeLocker('agent2').makePathLocker([eastQ, eastP])(
+                nn => { seen2 = nn.map(n => String(n.node)) })
+
+            agent1.arrivedAt(0)              // holds X and cell P
+            expect(seen1).toEqual(['X', 'westP'])
+            agent2.arrivedAt(0)              // granted cell Q, can never reach P
+            expect(seen2).toEqual(['eastQ'])
+            agent1.arrivedAt(1)              // moves into P, releasing X
+            expect(seen1).toEqual(['westP'])
+
+            // each holds the cell the other needs, and X stands empty
+            expect(X.isLocked()).toBeFalsy()
+            for (let round = 0; round < 5; round++) {
+                agent1.arrivedAt(1)
+                agent2.arrivedAt(0)
+            }
+            expect(seen1).toEqual(['westP'])
+            expect(seen2).toEqual(['eastQ'])
+        })
+    })
+
     test('clearAllLocks', () => {
         const creator = new Graferse<Node>(node => node.id)
         const lock1 = creator.makeLock('lock1')
