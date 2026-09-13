@@ -112,11 +112,6 @@ class LinkLock {
             throw new Error(`no such other direction ${direction}`)
     }
 
-    //isWaiting (who: string, direction: string) {
-    //    check(direction)
-    //    return this._waiters.get(direction).has(who)
-    //}
-
     isWaiting (who: string) {
         return Array.from(this._otherdir.keys()).some(dir => {
             const waiters = this._waiters.get(dir)
@@ -131,15 +126,17 @@ class LinkLock {
         }
     }
 
-    constructor (to: string, from: string) {
-        this._lockers.set(to, new Set<string>())
+    // the two directions are symmetric, so which is which does not matter,
+    // only that each is recorded as the other's opposite
+    constructor (from: string, to: string) {
         this._lockers.set(from, new Set<string>())
+        this._lockers.set(to, new Set<string>())
 
-        this._waiters.set(to, new Set<string>())
         this._waiters.set(from, new Set<string>())
+        this._waiters.set(to, new Set<string>())
 
-        this._otherdir.set(to, from)
         this._otherdir.set(from, to)
+        this._otherdir.set(to, from)
     }
 
     requestLock (byWhom: string, direction: string): boolean {
