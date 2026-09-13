@@ -97,6 +97,38 @@ describe('Graferse class', () => {
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
     })
+    test('clearAllExceptLastPathLocks keeps the node the agent sits on', () => {
+        const creator = new Graferse<Lock>(lock => names.get(lock) as string)
+        const getLockForLink = (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id)
+
+        const nodeA = creator.makeLock('nodeA')
+        const nodeB = creator.makeLock('nodeB')
+        const nodeX = creator.makeLock('nodeX')
+        const names = new Map<Lock,string>()
+        names.set(nodeA, 'nodeA')
+        names.set(nodeB, 'nodeB')
+        names.set(nodeX, 'nodeX')
+
+        const makeLocker = creator.makeMakeLocker(node => node, getLockForLink)
+        const agent1At = makeLocker('agent1').makePathLocker([nodeA, nodeB])((_: NextNode[]) => {})
+        const agent2At = makeLocker('agent2').makePathLocker([nodeX, nodeB])((_: NextNode[]) => {})
+
+        agent1At.arrivedAt(0)
+        agent1At.arrivedAt(1)
+        agent2At.arrivedAt(0)
+        expect(nodeB.isLocked()).toBeTruthy()
+
+        // finishing the path keeps nodeB: agent2 still cannot have it
+        agent1At.clearAllExceptLastPathLocks()
+        expect(nodeA.isLocked()).toBeFalsy()
+        expect(nodeB.isLocked('agent1')).toBeTruthy()
+        expect(nodeB.isLocked('agent2')).toBeFalsy()
+
+        // giving up entirely hands nodeB to the waiting agent2
+        creator.clearAllLocks('agent1')
+        expect(nodeB.isLocked('agent1')).toBeFalsy()
+        expect(nodeB.isLocked('agent2')).toBeTruthy()
+    })
     describe('findLockGroupConflicts', () => {
         // Two lock groups joined by edges running in both directions.  Each
         // group is one physical cell that only one agent may occupy.

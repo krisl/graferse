@@ -425,9 +425,13 @@ class Graferse<T>
         type NextNodes = (nextNodes: NextNode[], remaining: number) => void
         return (byWhom: string) => {
             const waitOnObstructor = (destinationNode: T, encounteredLocks: Set<Lock>) => {
+                // Wait on the nearest obstruction: freeing it replays us into
+                // a re-evaluation, so followers trail one node behind instead
+                // of stalling until the whole chain ahead clears.
                 const lock = getLock(destinationNode)
-                const lastEncouteredLock = lock.isLockedByOtherThan(byWhom) ? lock
-                    : Array.from(encounteredLocks).at(-1) || this.getLockedGroupLock(lock, byWhom)
+                const lastEncouteredLock = Array.from(encounteredLocks).at(-1)
+                    || (lock.isLockedByOtherThan(byWhom) ? lock : undefined)
+                    || this.getLockedGroupLock(lock, byWhom)
                 if (lastEncouteredLock) {
                     if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
                         throw new Error("This lock should not succeed")
@@ -589,9 +593,46 @@ class Graferse<T>
                     debug('└────\n')
                 }
 
+                // Idle agents keep holding the node they sit on, so nobody
+                // routes through them.  Everything else is released.
+                const clearAllExceptLastPathLocks = () => {
+                    debug(`── clearAllExceptLastPathLocks | ${byWhom} ──`);
+                    let lastLock = -1
+                    for (let i = 0; i < path.length; i++) {
+                        if (getLock(path[i]).isLocked(byWhom)) lastLock = i
+                    }
+                    if (lastLock === -1) return clearAllPathLocks()
+                    const whoCanMoveNow = new Set<string>()
+                    for (let i = 0; i < path.length; i++) {
+                        // unlock every link to ensure we dont leave any dangling
+                        if (i < path.length -1) {
+                            const fromNodeId = stringify(this.identity(path[i]))
+                            addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom, fromNodeId))
+                        }
+
+                        if (i >= lastLock) {
+                            // keep the node we sit on (and any alias of it),
+                            // but drop our own waits there
+                            getLock(path[i]).stopWaiting(byWhom)
+                            continue
+                        }
+
+                        if (getLock(path[i]) === getLock(path[lastLock])) {
+                            debug(`last lock also at position ${i}, skipping`)
+                            continue
+                        }
+                        debug(`  unlocking ${this.identity(path[i])} for ${byWhom}`)
+                        addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
+                    }
+                    addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
+                    whoCanMoveNow.delete(byWhom)
+                    this.notifyWaiters(whoCanMoveNow)
+                }
+
                 return {
                     arrivedAt,
                     clearAllPathLocks,
+                    clearAllExceptLastPathLocks,
                 }
             }
             return {
