@@ -162,7 +162,94 @@ describe('Graferse class', () => {
             expect(creator.findLockGroupConflicts([])).toEqual([])
         })
 
-        test('a network it rejects does deadlock, with a cell to spare', () => {
+        test('setTopology reserves through the pair and prevents the deadlock', () => {
+            const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+            expect(creator.setTopology([[X, westP], [westP, westQ], [eastQ, eastP]]))
+                .toHaveLength(1)
+
+            const makeLocker = creator.makeMakeLocker(
+                node => node,
+                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+            )
+            let seen1: string[] = [], seen2: string[] = []
+            const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(
+                nn => { seen1 = nn.map(n => String(n.node)) })
+            const agent2 = makeLocker('agent2').makePathLocker([eastQ, eastP])(
+                nn => { seen2 = nn.map(n => String(n.node)) })
+
+            agent1.arrivedAt(0)
+            expect(seen1).toEqual(['X', 'westP'])
+
+            // agent2 is refused cell Q now, because cell P beyond it is taken
+            agent2.arrivedAt(0)
+            expect(seen2).toEqual([])
+            expect(eastQ.isLocked()).toBeFalsy()
+
+            // so agent1 runs the corridor to the end and lets go
+            agent1.arrivedAt(1)
+            expect(seen1).toEqual(['westP', 'westQ'])
+            agent1.arrivedAt(2)
+            expect(seen1).toEqual(['westQ'])
+            agent1.clearAllPathLocks()
+
+            // and agent2 then gets the whole way through
+            agent2.arrivedAt(0)
+            expect(seen2).toEqual(['eastQ', 'eastP'])
+            agent2.arrivedAt(1)
+            expect(seen2).toEqual(['eastP'])
+        })
+
+        test('opting out keeps the old behaviour', () => {
+            const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+            creator.setTopology(
+                [[X, westP], [westP, westQ], [eastQ, eastP]],
+                { reserveThroughLockGroups: false },
+            )
+
+            const makeLocker = creator.makeMakeLocker(
+                node => node,
+                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+            )
+            let seen2: string[] = []
+            const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(() => {})
+            const agent2 = makeLocker('agent2').makePathLocker([eastQ, eastP])(
+                nn => { seen2 = nn.map(n => String(n.node)) })
+
+            agent1.arrivedAt(0)
+            agent2.arrivedAt(0)
+            // still let into cell Q it cannot leave
+            expect(seen2).toEqual(['eastQ'])
+        })
+
+        test('a one way group pair is not reserved through', () => {
+            const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
+            creator.setLockGroup([westP, eastP])
+            creator.setLockGroup([westQ, eastQ])
+            // no edge crosses back from Q to P, so there is no quotient edge
+            expect(creator.setTopology([[X, westP], [westP, westQ], [eastP, eastQ]]))
+                .toEqual([])
+            expect(creator.crossesQuotientEdge(westP, westQ)).toBeFalsy()
+
+            const makeLocker = creator.makeMakeLocker(
+                node => node,
+                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+            )
+            let seen2: string[] = []
+            const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(() => {})
+            const agent2 = makeLocker('agent2').makePathLocker([eastQ, eastP])(
+                nn => { seen2 = nn.map(n => String(n.node)) })
+
+            agent1.arrivedAt(0)
+            // agent2 keeps its old freedom to enter Q, nothing can wedge here
+            agent2.arrivedAt(0)
+            expect(seen2).toEqual(['eastQ'])
+        })
+
+        test('without setTopology the rejected network still deadlocks', () => {
             const { creator, X, westP, westQ, eastQ, eastP } = buildCells()
             creator.setLockGroup([westP, eastP])
             creator.setLockGroup([westQ, eastQ])

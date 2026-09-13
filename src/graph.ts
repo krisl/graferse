@@ -214,6 +214,10 @@ class Graferse<T>
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
+    // "groupIndex:groupIndex" for every lock group pair joined in both
+    // directions, stored under both orders
+    private _quotientEdges = new Set<string>()
+    private _reserveThroughLockGroups = true
     listeners: Array<() => void> = []
     identity: (x: T) => id
 
@@ -292,6 +296,43 @@ class Graferse<T>
     // README.
     setLockGroup(lockGroup: Lock[]) {
         this.lockGroups.push(lockGroup)
+    }
+
+    // Hand over the directed edges so the reservation walk can see the quotient
+    // graph.  Returns the same conflicts findLockGroupConflicts reports, so it
+    // doubles as the check.
+    //
+    // Pass { reserveThroughLockGroups: false } to opt out and keep the old
+    // behaviour, where a conflicting pair is only reported, never reserved
+    // through.  Then avoiding the deadlock is yours to do.
+    setTopology(
+        edges: Array<[Lock, Lock]>,
+        { reserveThroughLockGroups = true } = {},
+    ): LockGroupConflict[] {
+        const conflicts = this.findLockGroupConflicts(edges)
+        this._reserveThroughLockGroups = reserveThroughLockGroups
+        this._quotientEdges.clear()
+        for (const conflict of conflicts) {
+            const a = this.lockGroups.indexOf(conflict.groups[0])
+            const b = this.lockGroups.indexOf(conflict.groups[1])
+            this._quotientEdges.add(`${a}:${b}`)
+            this._quotientEdges.add(`${b}:${a}`)
+        }
+        return conflicts
+    }
+
+    // True when stepping from one lock group into another that is joined back
+    // to it, ie a bidirectional edge in the quotient graph.  The real edges are
+    // one way, so nothing else would notice.
+    crossesQuotientEdge(from: Lock, to: Lock) {
+        if (!this._reserveThroughLockGroups || this._quotientEdges.size === 0) {
+            return false
+        }
+        return this.lockGroups.some((fromGroup, a) =>
+            fromGroup.includes(from) && this.lockGroups.some((toGroup, b) =>
+                toGroup !== fromGroup
+                && toGroup.includes(to)
+                && this._quotientEdges.has(`${a}:${b}`)))
     }
 
     // Contract each lock group to a single node and you get a quotient graph.
@@ -409,6 +450,19 @@ class Graferse<T>
                     const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
+                        // A one way edge is normally a safe state to stop at.
+                        // It is not, when the step crosses between two lock
+                        // groups joined in both directions: that is a
+                        // bidirectional edge in the quotient graph, so keep
+                        // walking and only enter if the far group is free too.
+                        if (this.crossesQuotientEdge(getLock(subpath[0]), getLock(subpath[1]))) {
+                            debug(`  ${desc} crosses a quotient edge, reserving through`)
+                            if (!this.isLockGroupAvailable(getLock(subpath[1]), byWhom)) {
+                                debug(`  fail - ${desc} far lock group is taken`)
+                                return false
+                            }
+                            return tryLockAllBidirectionalEdges(subpath.slice(1))
+                        }
                         debug(`  ok - ${desc} not bidirectional`)
                         if (pivotNode) {
                             if (waitOnObstructor(pivotNode, encounteredLocks)) {
