@@ -50,9 +50,13 @@ describe('Graferse class', () => {
         const nodeB = creator.makeLock('nodeB')
         const nodeX = creator.makeLock('nodeX')
         const nodeY = creator.makeLock('nodeY')
-        const names = new Map<Lock,string>([
-            [nodeA, 'nodeA'], [nodeB, 'nodeB'], [nodeX, 'nodeX'], [nodeY, 'nodeY'],
-        ])
+        // populated after construction, else creator and names would each
+        // need the other's type to be inferred
+        const names = new Map<Lock,string>()
+        names.set(nodeA, 'nodeA')
+        names.set(nodeB, 'nodeB')
+        names.set(nodeX, 'nodeX')
+        names.set(nodeY, 'nodeY')
 
         // nodeB and nodeY exclude each other, but sit on separate paths
         creator.setLockGroup([nodeB, nodeY])
