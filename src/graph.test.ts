@@ -1288,11 +1288,12 @@ describe('Components', () => {
             const logSpyError = jest.spyOn(console, 'error').mockImplementation()
             const creator = new Graferse<Node>(node => node.id)
             const linkLock = creator.makeLinkLock('up', 'down') // by default is directed edge
+            // a one way edge has no opposing direction to contend over, so the
+            // request always succeeds, and says nothing about it
+            expect(linkLock.requestLock('test', 'up')).toBeTruthy()
+            expect(linkLock.requestLock('test', 'down')).toBeTruthy()
             expect(logSpyWarn).not.toHaveBeenCalled()
             expect(logSpyError).not.toHaveBeenCalled()
-            expect(linkLock.requestLock('test', 'up')).toBeTruthy()
-            expect(logSpyWarn).toHaveBeenCalled()
-            expect(logSpyError).toHaveBeenCalled()
 
             jest.resetAllMocks()
         })

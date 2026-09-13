@@ -199,9 +199,11 @@ class LinkLock {
 }
 
 class OnewayLinkLock extends LinkLock {
+    // A one way edge has no opposing direction to contend over, so there is
+    // nothing to reserve and nobody to wait for.  Traversal is governed by the
+    // node locks alone.  Callers skip this via the instanceof check in
+    // tryLockAllBidirectionalEdges, so it is only reached directly.
     requestLock (byWhom: string, direction: string): boolean {
-        console.error("Who is trying to lock a non-bidir link?", {byWhom, direction})
-        console.warn("This will cause problems because it should stop locking here")
         return true
     }
 }
