@@ -59,7 +59,11 @@ function makeTrace(namespace: string): Trace {
             if (grouping) {
                 if (outcome) console.debug(outcome)
                 console.groupEnd()
-            } else emit(`${indent()}└─${outcome ? ` ${outcome}` : ''}`)
+                return
+            }
+            // A terminal frame ends where the indent drops, so a closing line
+            // earns its place only when it carries an outcome.
+            if (outcome) emit(`${indent()}└─ ${outcome}`)
         },
         log(...args: unknown[]) {
             if (!emit.enabled) return

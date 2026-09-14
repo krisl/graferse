@@ -1,5 +1,5 @@
-import makeDebug from 'debug'
-const debug = makeDebug('graferse')
+import { makeTrace } from './trace.js'
+const trace = makeTrace('graferse')
 
 type id = string | number
 
@@ -37,7 +37,7 @@ class Lock {
             return true
         }
 
-        debug(`Resource ${what} is locked, ${byWhom} will wait`)
+        trace.log(`${what} is locked, ${byWhom} will wait`)
         this.waiting.add(byWhom)
         return false
     }
@@ -50,11 +50,11 @@ class Lock {
 
     unlock (byWhom: string) {
         if (this.lockedBy.delete(byWhom)) {
-            debug(`unlocked ${this.id} for ${byWhom}`)
+            trace.log(`unlocked ${this.id} for ${byWhom}`)
         }
 
         if (this.waiting.delete(byWhom)) {
-            debug(`stopped waiting ${this.id} for ${byWhom}`)
+            trace.log(`stopped waiting ${this.id} for ${byWhom}`)
         }
 
         if (!this.isLocked()) {
@@ -71,7 +71,7 @@ class Lock {
         if (!this.waiting.delete(byWhom)) {
             return
         }
-        debug(`stopped waiting ${this.id} for ${byWhom}`)
+        trace.log(`stopped waiting ${this.id} for ${byWhom}`)
 
         if (!this.isLocked()) {
             // same as unlock, the remaining waiters get to try again
@@ -150,7 +150,7 @@ class LinkLock {
             return true
         }
 
-        debug(`Resource 'link from ${direction}' is locked, ${byWhom} should wait`)
+        trace.log(`link from ${direction} is locked, ${byWhom} should wait`)
         this._waiters.get(direction)?.add(byWhom)
 
         return false
@@ -283,18 +283,20 @@ class Graferse<T>
     }
 
     clearAllLocks(byWhom: string) {
-        debug(`── clearAllLocks | ${byWhom} ──`);
-        // nothing is left to replay, and the closure would otherwise be held
-        // for the life of the graph
-        this.lastCallCache.delete(byWhom)
-        const whoCanMoveNow = new Set<string>()
-        for (const lock of this.locks) {
-            addAll(whoCanMoveNow, lock.unlock(byWhom))
-        }
-        for (const linkLock of this.linkLocks) {
-            addAll(whoCanMoveNow, linkLock.unlock(byWhom))
-        }
-        this.notifyWaiters(whoCanMoveNow)
+        trace.open(`clearAllLocks | ${byWhom}`)
+        try {
+            // nothing is left to replay, and the closure would otherwise be held
+            // for the life of the graph
+            this.lastCallCache.delete(byWhom)
+            const whoCanMoveNow = new Set<string>()
+            for (const lock of this.locks) {
+                addAll(whoCanMoveNow, lock.unlock(byWhom))
+            }
+            for (const linkLock of this.linkLocks) {
+                addAll(whoCanMoveNow, linkLock.unlock(byWhom))
+            }
+            this.notifyWaiters(whoCanMoveNow)
+        } finally { trace.close() }
     }
 
     // a waiter can be parked on a lock that is not on its own path, eg a lock
@@ -473,7 +475,28 @@ class Graferse<T>
                     if (!sameWay) return false
                     return [...lock.lockedBy].every(who => who === byWhom || sameWay.has(who))
                 }
+                // The frame opens on the way IN, so a corridor reads in
+                // travel order.  The outcome lines used to fire as the
+                // recursion unwound, which listed the edges from the far end
+                // back to us - the reverse of the way the robot drives them.
                 const tryLockAllBidirectionalEdges = (
+                    subpath: T[],
+                    via?: {link: LinkLock, from: string},
+                ): Reservation => {
+                    trace.open(subpath.length > 1
+                        ? `${this.identity(subpath[0])} → ${this.identity(subpath[1])}`
+                        : `${this.identity(subpath[0])} (end of path)`)
+                    try {
+                        // No outcome here: every frame but one is propagating
+                        // the same verdict back up, and naming it at each
+                        // level buries the frame that actually decided it.
+                        // The walk is reported once, by the caller.
+                        return reserveFrom(subpath, via)
+                    } finally {
+                        trace.close()
+                    }
+                }
+                const reserveFrom = (
                     subpath: T[],
                     via?: {link: LinkLock, from: string},
                 ): Reservation => {
@@ -487,7 +510,7 @@ class Graferse<T>
                         if (lock.isLockedByOtherThan(byWhom)) {
                             encounteredLocks.add(lock)
                             if (!via || !travellingWithUs(lock, via)) {
-                                debug(`  ${this.identity(subpath[0])} is held by traffic not travelling with us`)
+                                trace.log(`${this.identity(subpath[0])} is held by traffic not travelling with us`)
                                 convoyOnly = false
                             }
                         }
@@ -503,7 +526,6 @@ class Graferse<T>
                     // TODO will these locks and unlocks trigger waiters?
                     // may need a cangetlock? function.  prepare lock?
                     const linkLock = getLockForLink(subpath[0], subpath[1])
-                    const desc = `from ${this.identity(subpath[0])} to ${this.identity(subpath[1])}`
                     const fromNodeId = stringify(this.identity(subpath[0]))
                     if (linkLock instanceof OnewayLinkLock) {
                         // A one way edge is normally a safe state to stop at.
@@ -512,14 +534,14 @@ class Graferse<T>
                         // bidirectional edge in the quotient graph, so keep
                         // walking and only enter if the far group is free too.
                         if (this.crossesQuotientEdge(getLock(subpath[0]), getLock(subpath[1]))) {
-                            debug(`  ${desc} crosses a quotient edge, reserving through`)
+                            trace.log('crosses a quotient edge, reserving through')
                             if (!this.isLockGroupAvailable(getLock(subpath[1]), byWhom)) {
-                                debug(`  fail - ${desc} far lock group is taken`)
+                                trace.log('far lock group is taken')
                                 return 'blocked'
                             }
                             return tryLockAllBidirectionalEdges(subpath.slice(1))
                         }
-                        debug(`  ok - ${desc} not bidirectional`)
+                        trace.log('one way, a safe place to stop')
                         if (pivotNode) {
                             if (waitOnObstructor(pivotNode, encounteredLocks)) {
                                 return obstructed()
@@ -532,8 +554,7 @@ class Graferse<T>
 
                     // if it failed to lock because of opposing direction
                     if (!linkLockResult) {
-                        debug(`  fail - ${desc} locked against us`)
-                        debug('%o', linkLock.getDetails())
+                        trace.log('locked against us %o', linkLock.getDetails())
                         return 'blocked'
                     }
                     edgesHeld++
@@ -548,130 +569,134 @@ class Graferse<T>
                     // 'convoy' keeps this edge: it is what tells oncoming
                     // traffic the section is claimed in our direction while
                     // we sit in it.
-                    debug(`  ok - ${desc} obtained`)
                     return ahead
                 }
 
                 const clearAllPathLocks = () => {
-                    debug(`── clearAllPathLocks | ${byWhom} ──`);
-                    // this path is over, so it must never be replayed
-                    this.lastCallCache.delete(byWhom)
-                    const whoCanMoveNow = new Set<string>()
-                    for (let i = 0; i < path.length; i++) {
-                        addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
-                        if (i < path.length -1) // except the last node
-                            addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom))
-                    }
-                    addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
-                    // link locks can hand us back our own name, and we have
-                    // nothing left to replay
-                    whoCanMoveNow.delete(byWhom)
-                    this.notifyWaiters(whoCanMoveNow)
+                    trace.open(`clearAllPathLocks | ${byWhom}`)
+                    try {
+                        // this path is over, so it must never be replayed
+                        this.lastCallCache.delete(byWhom)
+                        const whoCanMoveNow = new Set<string>()
+                        for (let i = 0; i < path.length; i++) {
+                            addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
+                            if (i < path.length -1) // except the last node
+                                addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom))
+                        }
+                        addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
+                        // link locks can hand us back our own name, and we have
+                        // nothing left to replay
+                        whoCanMoveNow.delete(byWhom)
+                        this.notifyWaiters(whoCanMoveNow)
+                    } finally { trace.close() }
                 }
 
                 const arrivedAt = (currentIdx: number) => {
-                    debug(`┌─ Lock | ${byWhom} ${currentIdx} ${this.identity(path[currentIdx])} ──`);
-                    this.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
+                    trace.open(`${byWhom} at ${this.identity(path[currentIdx])} [${currentIdx}]`)
+                    try {
+                        this.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
 
 
-                    const beforeCount = 0, afterCount = 1
-                    const lastIdx = path.length -1
-                    const firstToLock = Math.max(currentIdx - beforeCount, 0)      // first to be locked
-                    const lastToLock = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
-                    const whoCanMoveNow = new Set<string>()
+                        const beforeCount = 0, afterCount = 1
+                        const lastIdx = path.length -1
+                        const firstToLock = Math.max(currentIdx - beforeCount, 0)      // first to be locked
+                        const lastToLock = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+                        const whoCanMoveNow = new Set<string>()
 
-                    const nextNodes: NextNode[] = []
-                    // go through path from start to last node to be locked
-                    for (let i = 0; i <= lastToLock; i++) {
-                        // unlock all edges before current position
-                        if (i > 0 && i <= currentIdx) {
-                            const fromNodeId = stringify(this.identity(path[i-1]))
-                            addAll(whoCanMoveNow, getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
+                        const nextNodes: NextNode[] = []
+                        // go through path from start to last node to be locked
+                        for (let i = 0; i <= lastToLock; i++) {
+                            // unlock all edges before current position
+                            if (i > 0 && i <= currentIdx) {
+                                const fromNodeId = stringify(this.identity(path[i-1]))
+                                addAll(whoCanMoveNow, getLockForLink(path[i-1], path[i]).unlock(byWhom, fromNodeId))
+                            }
+
+                            // if its behind the firstToLock, unlock it
+                            if (i < firstToLock) {
+                                addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
+                                continue
+                            }
+
+                            const lock = getLock(path[i])
+                            if (!this.isLockGroupAvailable(lock, byWhom)) {
+                                trace.log('could not obtain lock, group is locked')
+                                break;
+                            }
+                            /* Lock from firstToLock to lastToLock */
+                            // if failed to obtain lock, dont try to get any more
+                            if (!lock.requestLock(byWhom, stringify(this.identity(path[i])))) {
+                                break;
+                            }
+
+                            encounteredLocks.clear()
+                            pivotNode = undefined
+                            edgesHeld = 0
+                            convoyOnly = true
+                            const reservation = tryLockAllBidirectionalEdges(path.slice(i))
+                            trace.log(`reserving from ${this.identity(path[i])}: ${reservation}`)
+                            if (reservation === 'blocked') {
+                                // unlock previously obtained node lock
+                                addAll(whoCanMoveNow, lock.unlock(byWhom))
+                                break
+                            }
+                            trace.log(`encountered ${encounteredLocks.size} locks along the way`)
+                            if (reservation === 'convoy') {
+                                // Keep the node and the edges we hold.  How far we
+                                // get is then decided by the node locks alone, so
+                                // we close up behind the vehicle ahead and stop on
+                                // the node before it.
+                            }
+                            nextNodes.push({node: this.identity(path[i]), index: i})
                         }
 
-                        // if its behind the firstToLock, unlock it
-                        if (i < firstToLock) {
-                            addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
-                            continue
-                        }
+                        trace.log('can move now: %o', [...whoCanMoveNow])
+                        // TODO consider not calling back with same values as last time or leave it up to clients to handle this
+                        callback(
+                            nextNodes,
+                            path.length - (currentIdx +1)
+                        )
 
-                        const lock = getLock(path[i])
-                        if (!this.isLockGroupAvailable(lock, byWhom)) {
-                            debug("Could not obtain lock, group is locked")
-                            break;
-                        }
-                        /* Lock from firstToLock to lastToLock */
-                        // if failed to obtain lock, dont try to get any more
-                        if (!lock.requestLock(byWhom, stringify(this.identity(path[i])))) {
-                            break;
-                        }
-                        debug("  trying to lock bidir edges from node %o", this.identity(path[i]))
-                        encounteredLocks.clear()
-                        pivotNode = undefined
-                        edgesHeld = 0
-                        convoyOnly = true
-                        const reservation = tryLockAllBidirectionalEdges(path.slice(i))
-                        if (reservation === 'blocked') {
-                            // unlock previously obtained node lock
-                            addAll(whoCanMoveNow, lock.unlock(byWhom))
-                            break
-                        }
-                        debug(`Encountered ${encounteredLocks.size} locks along the way`)
-                        if (reservation === 'convoy') {
-                            // Keep the node and the edges we hold.  How far we
-                            // get is then decided by the node locks alone, so
-                            // we close up behind the vehicle ahead and stop on
-                            // the node before it.
-                            debug(`  joining the convoy at ${this.identity(path[i])}`)
-                        }
-                        nextNodes.push({node: this.identity(path[i]), index: i})
-                    }
-
-                    debug({whoCanMoveNow})
-                    // TODO consider not calling back with same values as last time or leave it up to clients to handle this
-                    callback(
-                        nextNodes,
-                        path.length - (currentIdx +1)
-                    )
-
-                    this.notifyWaiters(whoCanMoveNow)
-                    debug('└────\n')
+                        this.notifyWaiters(whoCanMoveNow)
+                    } finally { trace.close() }
                 }
 
                 // Idle agents keep holding the node they sit on, so nobody
                 // routes through them.  Everything else is released.
                 const clearAllExceptLastPathLocks = () => {
-                    debug(`── clearAllExceptLastPathLocks | ${byWhom} ──`);
-                    let lastLock = -1
-                    for (let i = 0; i < path.length; i++) {
-                        if (getLock(path[i]).isLocked(byWhom)) lastLock = i
-                    }
-                    if (lastLock === -1) return clearAllPathLocks()
-                    const whoCanMoveNow = new Set<string>()
-                    for (let i = 0; i < path.length; i++) {
-                        // unlock every link to ensure we dont leave any dangling
-                        if (i < path.length -1) {
-                            const fromNodeId = stringify(this.identity(path[i]))
-                            addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom, fromNodeId))
+                    trace.open(`clearAllExceptLastPathLocks | ${byWhom}`)
+                    try {
+                        let lastLock = -1
+                        for (let i = 0; i < path.length; i++) {
+                            if (getLock(path[i]).isLocked(byWhom)) lastLock = i
                         }
+                        if (lastLock === -1) return clearAllPathLocks()
+                        const whoCanMoveNow = new Set<string>()
+                        for (let i = 0; i < path.length; i++) {
+                            // unlock every link to ensure we dont leave any dangling
+                            if (i < path.length -1) {
+                                const fromNodeId = stringify(this.identity(path[i]))
+                                addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom, fromNodeId))
+                            }
 
-                        if (i >= lastLock) {
-                            // keep the node we sit on (and any alias of it),
-                            // but drop our own waits there
-                            getLock(path[i]).stopWaiting(byWhom)
-                            continue
-                        }
+                            if (i >= lastLock) {
+                                // keep the node we sit on (and any alias of it),
+                                // but drop our own waits there
+                                getLock(path[i]).stopWaiting(byWhom)
+                                continue
+                            }
 
-                        if (getLock(path[i]) === getLock(path[lastLock])) {
-                            debug(`last lock also at position ${i}, skipping`)
-                            continue
+                            if (getLock(path[i]) === getLock(path[lastLock])) {
+                                trace.log(`last lock also at position ${i}, skipping`)
+                                continue
+                            }
+                            trace.log(`unlocking ${this.identity(path[i])} for ${byWhom}`)
+                            addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
                         }
-                        debug(`  unlocking ${this.identity(path[i])} for ${byWhom}`)
-                        addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
-                    }
-                    addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
-                    whoCanMoveNow.delete(byWhom)
-                    this.notifyWaiters(whoCanMoveNow)
+                        addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
+                        whoCanMoveNow.delete(byWhom)
+                        this.notifyWaiters(whoCanMoveNow)
+                    } finally { trace.close() }
                 }
 
                 return {
