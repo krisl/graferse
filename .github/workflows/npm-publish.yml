@@ -5,7 +5,10 @@ name: Node.js Package
 
 on:
   release:
-    types: [created]
+    # `published`, not `created`: saving a release as a DRAFT fires `created`,
+    # so a half written draft would publish to npm.  `published` fires when a
+    # draft is published, or a release is created already published.
+    types: [published]
 
 jobs:
   test:
