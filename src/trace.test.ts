@@ -1,5 +1,6 @@
 import makeDebug from 'debug'
 import { makeTrace, traceDepth, resetTraceDepth } from './trace.js'
+import { Graferse } from './graph.js'
 
 // the renderer is chosen at import time; under jest there is no window, so
 // these exercise the terminal path.  What matters either way is the depth
@@ -56,5 +57,66 @@ describe('trace', () => {
         expect(traceDepth()).toBe(0)
         trace.close()
         expect(traceDepth()).toBe(0)
+    })
+})
+
+// The `graferse` namespace is the one line per move that you read by default;
+// `graferse:walk` is the tree underneath it.
+describe('summary namespace', () => {
+    const lines: string[] = []
+    const original = makeDebug.log
+    // debug prepends its own timestamp and namespace; the content is ours
+    const said = () => lines.map(l => l.replace(/^\S+ graferse(:walk)? /, ''))
+
+    beforeEach(() => {
+        resetTraceDepth()
+        lines.length = 0
+        makeDebug.log = (...args: unknown[]) => { lines.push(args.join(' ')) }
+    })
+    afterEach(() => {
+        makeDebug.log = original
+        makeDebug.disable()
+    })
+
+    // a <-> b <-> c, both edges bidirectional
+    const corridor = () => {
+        const creator = new Graferse<string>(x => x)
+        const locks = new Map(['a', 'b', 'c'].map(id => [id, creator.makeLock(id)]))
+        const ab = creator.makeLinkLock('a', 'b', true)
+        const bc = creator.makeLinkLock('b', 'c', true)
+        const links = new Map([['a>b', ab], ['b>a', ab], ['b>c', bc], ['c>b', bc]])
+        const makeLocker = creator.makeMakeLocker(
+            (x: string) => locks.get(x)!,
+            (from: string, to: string) => links.get(`${from}>${to}`)!)
+        return { makeLocker }
+    }
+
+    test('reports who moved and what they were granted', () => {
+        makeDebug.enable('graferse')
+        const { makeLocker } = corridor()
+        makeLocker('one').makePathLocker(['a', 'b', 'c'])(() => {}).arrivedAt(0)
+        expect(said()).toEqual(['one at a → a, b'])
+    })
+
+    test('names what stopped a robot that got nothing', () => {
+        makeDebug.enable('graferse')
+        const { makeLocker } = corridor()
+        makeLocker('one').makePathLocker(['a', 'b', 'c'])(() => {}).arrivedAt(0)
+        lines.length = 0
+        // the opposite way down the same corridor
+        makeLocker('two').makePathLocker(['c', 'b', 'a'])(() => {}).arrivedAt(0)
+        expect(said()).toEqual(['two at c → nothing — nothing to reserve from c'])
+    })
+
+    test('the walk detail is off unless its own namespace is on', () => {
+        makeDebug.enable('graferse')
+        const { makeLocker } = corridor()
+        makeLocker('one').makePathLocker(['a', 'b', 'c'])(() => {}).arrivedAt(0)
+        expect(lines.some(l => l.includes('┌─'))).toBe(false)
+
+        makeDebug.enable('graferse*')
+        lines.length = 0
+        makeLocker('two').makePathLocker(['a', 'b', 'c'])(() => {}).arrivedAt(0)
+        expect(lines.some(l => l.includes('┌─'))).toBe(true)
     })
 })

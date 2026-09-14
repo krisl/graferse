@@ -1,5 +1,9 @@
 import { makeTrace } from './trace.js'
-const trace = makeTrace('graferse')
+// Two levels of detail.  `graferse` is one line per arrivedAt - who moved,
+// what they were granted, what stopped them - which is what you want almost
+// always.  `graferse:walk` adds the per-edge reservation tree underneath it.
+const summary = makeTrace('graferse')
+const trace = makeTrace('graferse:walk')
 
 type id = string | number
 
@@ -604,6 +608,7 @@ class Graferse<T>
                         const whoCanMoveNow = new Set<string>()
 
                         const nextNodes: NextNode[] = []
+                        let stopped = ''
                         // go through path from start to last node to be locked
                         for (let i = 0; i <= lastToLock; i++) {
                             // unlock all edges before current position
@@ -621,11 +626,13 @@ class Graferse<T>
                             const lock = getLock(path[i])
                             if (!this.isLockGroupAvailable(lock, byWhom)) {
                                 trace.log('could not obtain lock, group is locked')
+                                stopped = `lock group holding ${this.identity(path[i])} is taken`
                                 break;
                             }
                             /* Lock from firstToLock to lastToLock */
                             // if failed to obtain lock, dont try to get any more
                             if (!lock.requestLock(byWhom, stringify(this.identity(path[i])))) {
+                                stopped = `${this.identity(path[i])} is taken`
                                 break;
                             }
 
@@ -638,6 +645,7 @@ class Graferse<T>
                             if (reservation === 'blocked') {
                                 // unlock previously obtained node lock
                                 addAll(whoCanMoveNow, lock.unlock(byWhom))
+                                stopped = `nothing to reserve from ${this.identity(path[i])}`
                                 break
                             }
                             trace.log(`encountered ${encounteredLocks.size} locks along the way`)
@@ -651,6 +659,10 @@ class Graferse<T>
                         }
 
                         trace.log('can move now: %o', [...whoCanMoveNow])
+                        summary.log(
+                            `${byWhom} at ${this.identity(path[currentIdx])}`
+                            + ` → ${nextNodes.map(n => n.node).join(', ') || 'nothing'}`
+                            + (stopped ? ` — ${stopped}` : ''))
                         // TODO consider not calling back with same values as last time or leave it up to clients to handle this
                         callback(
                             nextNodes,
