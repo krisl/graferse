@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "lint": "eslint .",
     "test": "jest",
     "test:cover": "jest --coverage",
