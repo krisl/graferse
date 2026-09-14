@@ -200,6 +200,9 @@ class OnewayLinkLock extends LinkLock {
     }
 }
 
+/** Outcome of reserving the bidirectional run ahead of a node. */
+type Reservation = 'clear' | 'convoy' | 'blocked'
+
 type NextNode = { node: id, index: number }
 // two lock groups that can trap agents in each other, and the edges to blame
 type LockGroupConflict = {
@@ -441,14 +444,39 @@ class Graferse<T>
             }
 
             const makePathLocker = (path: T[]) => (callback: NextNodes) => {
-                // given an index in the path, tries to lock all bidirectional edges
-                // till the last node in the path
-                // returns false if first edge fails, otherwise returns true
-                // as we can proceed some of the way in the same direction
-
+                // Walks the path from a node, reserving every bidirectional
+                // edge until it reaches a safe place to stop.  Reports:
+                //   'clear'   reserved through to a safe stop - take the node
+                //             and keep looking further ahead
+                //   'convoy'  the only thing in the way is traffic already
+                //             moving OUR way, and we hold the edges up to it.
+                //             Take the node, stop there, wait to be replayed
+                //   'blocked' oncoming traffic, or nothing to be had - release
+                //             everything and stay put
                 let pivotNode: T|undefined
+                let edgesHeld = 0
+                // Every obstruction we met was a vehicle travelling our way.
+                // A convoy is just one longer vehicle: it leaves by the exit
+                // its head already reserved, so we may queue behind it instead
+                // of refusing to enter.  One obstruction that is NOT part of
+                // our convoy (idle, or turning off) clears this: it owes us no
+                // exit, so the old all-or-nothing rule applies.
+                let convoyOnly = true
                 const encounteredLocks = new Set<Lock>()
-                const tryLockAllBidirectionalEdges = (subpath: T[]) => {
+                const obstructed = (): Reservation =>
+                    edgesHeld > 0 && convoyOnly ? 'convoy' : 'blocked'
+                // A vehicle is in our convoy if it holds the edge we came in
+                // on, in the same direction we hold it.  Anything else on that
+                // node is stopped, or leaving sideways, and cannot be followed.
+                const travellingWithUs = (lock: Lock, via: {link: LinkLock, from: string}) => {
+                    const sameWay = via.link.getDetails().lockers.get(via.from)
+                    if (!sameWay) return false
+                    return [...lock.lockedBy].every(who => who === byWhom || sameWay.has(who))
+                }
+                const tryLockAllBidirectionalEdges = (
+                    subpath: T[],
+                    via?: {link: LinkLock, from: string},
+                ): Reservation => {
                     // check if the path turns back on itself
                     if (subpath.length > 2) {
                         if (this.identity(subpath[0]) === this.identity(subpath[2]))
@@ -458,15 +486,19 @@ class Graferse<T>
                         const lock = getLock(subpath[0])
                         if (lock.isLockedByOtherThan(byWhom)) {
                             encounteredLocks.add(lock)
+                            if (!via || !travellingWithUs(lock, via)) {
+                                debug(`  ${this.identity(subpath[0])} is held by traffic not travelling with us`)
+                                convoyOnly = false
+                            }
                         }
                     }
                     if (subpath.length < 2) {
                         // we ended our path on a bidir edge (likely a trolly location)
                         // fail, and wait on the last lock we encountered
                         if (waitOnObstructor(pivotNode || subpath[0], encounteredLocks)) {
-                            return false
+                            return obstructed()
                         }
-                        return true
+                        return 'clear'
                     }
                     // TODO will these locks and unlocks trigger waiters?
                     // may need a cangetlock? function.  prepare lock?
@@ -483,17 +515,17 @@ class Graferse<T>
                             debug(`  ${desc} crosses a quotient edge, reserving through`)
                             if (!this.isLockGroupAvailable(getLock(subpath[1]), byWhom)) {
                                 debug(`  fail - ${desc} far lock group is taken`)
-                                return false
+                                return 'blocked'
                             }
                             return tryLockAllBidirectionalEdges(subpath.slice(1))
                         }
                         debug(`  ok - ${desc} not bidirectional`)
                         if (pivotNode) {
                             if (waitOnObstructor(pivotNode, encounteredLocks)) {
-                                return false
+                                return obstructed()
                             }
                         }
-                        return true
+                        return 'clear'
                     }
 
                     const linkLockResult = linkLock.requestLock(byWhom, fromNodeId)
@@ -502,16 +534,22 @@ class Graferse<T>
                     if (!linkLockResult) {
                         debug(`  fail - ${desc} locked against us`)
                         debug('%o', linkLock.getDetails())
-                        return false
+                        return 'blocked'
                     }
+                    edgesHeld++
 
-                    if (!tryLockAllBidirectionalEdges(subpath.slice(1))) {
+                    const ahead = tryLockAllBidirectionalEdges(subpath.slice(1), {link: linkLock, from: fromNodeId})
+                    if (ahead === 'blocked') {
+                        edgesHeld--
                         linkLock.unlock(byWhom, fromNodeId)
-                        return false
+                        return 'blocked'
                     }
 
+                    // 'convoy' keeps this edge: it is what tells oncoming
+                    // traffic the section is claimed in our direction while
+                    // we sit in it.
                     debug(`  ok - ${desc} obtained`)
-                    return true
+                    return ahead
                 }
 
                 const clearAllPathLocks = () => {
@@ -568,17 +606,24 @@ class Graferse<T>
                             break;
                         }
                         debug("  trying to lock bidir edges from node %o", this.identity(path[i]))
-                        // TODO consider returning the length of obtained edge locks
-                        // if its > 0, even though further failed, allow the againt to retain the node lock
-                        // so we can enter corridors as far as we can and wait there
                         encounteredLocks.clear()
                         pivotNode = undefined
-                        if (!tryLockAllBidirectionalEdges(path.slice(i))) {
+                        edgesHeld = 0
+                        convoyOnly = true
+                        const reservation = tryLockAllBidirectionalEdges(path.slice(i))
+                        if (reservation === 'blocked') {
                             // unlock previously obtained node lock
                             addAll(whoCanMoveNow, lock.unlock(byWhom))
                             break
                         }
                         debug(`Encountered ${encounteredLocks.size} locks along the way`)
+                        if (reservation === 'convoy') {
+                            // Keep the node and the edges we hold.  How far we
+                            // get is then decided by the node locks alone, so
+                            // we close up behind the vehicle ahead and stop on
+                            // the node before it.
+                            debug(`  joining the convoy at ${this.identity(path[i])}`)
+                        }
                         nextNodes.push({node: this.identity(path[i]), index: i})
                     }
 
@@ -645,4 +690,4 @@ class Graferse<T>
 }
 
 export { Graferse }
-export type { Lock, LinkLock, NextNode, LockGroupConflict }
+export type { Lock, LinkLock, NextNode, LockGroupConflict, Reservation }

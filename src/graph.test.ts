@@ -1411,6 +1411,103 @@ describe('ngraph', () => {
     //    expect(s1ForwardPath).toEqual([nodeD])
     //    expect(s2ForwardPath).toEqual([nodeC, nodeB])
     //})
+    // A ring with every edge bidirectional and NO exit anywhere: there is no
+    // one way edge to stop at, so reserving "to a safe stop" means reserving
+    // the whole lap.  A lap always contains the leader, so without the convoy
+    // rule no second robot could ever set a wheel on the ring.
+    const makeRing = () => {
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const ring = ['w', 'nw', 'ne', 'e', 'se', 'sw']
+        const nodes = new Map(ring.map(id => [id, makeNode(id)]))
+        for (let i = 0; i < ring.length; i++) {
+            const a = ring[i], b = ring[(i + 1) % ring.length]
+            const lock = creator.makeLinkLock(a, b, true)
+            graph.addLink(a, b, lock)
+            graph.addLink(b, a, lock)
+        }
+        // where a robot waits before joining, reached by a one way edge, as a
+        // parking spot is
+        const mkStart = (id: string, onto: string) => {
+            const node = graph.addNode(id, creator.makeLock(id))
+            graph.addLink(id, onto, creator.makeLinkLock(id, onto))
+            nodes.set(id, node)
+            return node
+        }
+        const at = (id: string) => nodes.get(id)!
+        // a full lap of the ring, ending back where it started - on the ring
+        const lap = (from: string) => {
+            const i = ring.indexOf(from)
+            return [...ring.slice(i), ...ring.slice(0, i), ring[i]].map(at)
+        }
+        return { creator, ring, at, mkStart, lap }
+    }
+
+    test('fully bidirectional ring: a follower joins behind the leader', () => {
+        const { creator, at, mkStart, lap } = makeRing()
+        const start2 = mkStart('start2', 'e')
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        let nextNodes1: Array<NextNode> = []
+        let nextNodes2: Array<NextNode> = []
+        const leader = makeLocker("leader").makePathLocker(lap('w'))((nn) => { nextNodes1 = nn })
+        const follower = makeLocker("follower").makePathLocker([start2, ...lap('e')])((nn) => { nextNodes2 = nn })
+
+        leader.arrivedAt(0)
+        expect(nextNodes1).toEqual([{index: 0, node: 'w'}, {index: 1, node: 'nw'}])
+
+        // The follower's lap runs the whole ring, so it always contains the
+        // leader.  It joins anyway: the leader is travelling its way, so the
+        // two are one longer vehicle and leave by the exit the leader holds.
+        follower.arrivedAt(0)
+        expect(nextNodes2).toEqual([{index: 0, node: 'start2'}, {index: 1, node: 'e'}])
+        expect(at('e').data.isLocked("follower")).toBeTruthy()
+
+        // It stops on entry rather than claiming past the leader.
+        expect(at('se').data.isLocked("follower")).toBeFalsy()
+        expect(at('nw').data.isLocked("follower")).toBeFalsy()
+
+        // And it trails the leader round, one node at a time.
+        follower.arrivedAt(1)
+        expect(nextNodes2).toEqual([{index: 1, node: 'e'}, {index: 2, node: 'se'}])
+        follower.arrivedAt(2)
+        expect(nextNodes2).toEqual([{index: 2, node: 'se'}, {index: 3, node: 'sw'}])
+    })
+
+    test('fully bidirectional ring: no joining behind a robot that is not leading', () => {
+        const { creator, at, mkStart, lap } = makeRing()
+        const start2 = mkStart('start2', 'e')
+        // an idle robot squatting on the ring: it claims no direction, so it
+        // owes us no exit and cannot be followed
+        at('nw').data.requestLock("idler", "nw")
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        let nextNodes2: Array<NextNode> = []
+        const follower = makeLocker("follower").makePathLocker([start2, ...lap('e')])((nn) => { nextNodes2 = nn })
+
+        follower.arrivedAt(0)
+        expect(nextNodes2).toEqual([{index: 0, node: 'start2'}])
+        expect(at('e').data.isLocked("follower")).toBeFalsy()
+    })
+
+    test('fully bidirectional ring: no joining against the leader', () => {
+        const { creator, at, mkStart, lap } = makeRing()
+        const start2 = mkStart('start2', 'e')
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        let nextNodes2: Array<NextNode> = []
+        const leader = makeLocker("leader").makePathLocker(lap('w'))(() => {})
+        // the opposite way round the ring from the leader
+        const against = [...lap('e')].reverse()
+        const follower = makeLocker("follower").makePathLocker([start2, ...against])((nn) => { nextNodes2 = nn })
+
+        leader.arrivedAt(0)
+        follower.arrivedAt(0)
+        expect(nextNodes2).toEqual([{index: 0, node: 'start2'}])
+        expect(at('e').data.isLocked("follower")).toBeFalsy()
+    })
+
     test('directed', () => {
         const graph = ngraphCreateGraph()
         const creator = new Graferse<Node<Lock>>(node => node.id)
