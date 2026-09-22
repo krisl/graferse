@@ -1732,6 +1732,28 @@ describe('Components', () => {
                 expect(linkLock.isWaiting('agent2')).toBeFalsy()
             })
         })
+
+        test('getDetails is a snapshot, not a window into the lock', () => {
+            const creator = new Graferse<Node>(node => node.id)
+            const linkLock = creator.makeLinkLock('up', 'down', true)
+            expect(linkLock.requestLock('agent1', 'up')).toBeTruthy()
+
+            const details = linkLock.getDetails()
+            expect(details.lockers.get('up')).toEqual(new Set(['agent1']))
+
+            // mutating what we were handed must not change who holds the link
+            details.lockers.get('up')!.clear()
+            details.lockers.set('down', new Set(['intruder']))
+            details.waiters.get('up')!.add('intruder')
+
+            expect(linkLock.isLocked('agent1')).toBeTruthy()
+            expect(linkLock.isLocked('intruder')).toBeFalsy()
+            expect(linkLock.isWaiting('intruder')).toBeFalsy()
+            expect(linkLock.getDetails().lockers.get('up'))
+                .toEqual(new Set(['agent1']))
+            expect(linkLock.getDetails().lockers.get('down'))
+                .toEqual(new Set())
+        })
     })
 })
 

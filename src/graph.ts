@@ -118,10 +118,14 @@ class LinkLock {
         })
     }
 
+    // a snapshot for logging and for convoy checks.  copies, so a caller
+    // cannot reach into the live sets and change who holds the link
     getDetails() {
+        const copy = (m: Map<string, Set<string>>) =>
+            new Map([...m].map(([key, set]) => [key, new Set(set)]))
         return {
-            lockers: this._lockers,
-            waiters: this._waiters,
+            lockers: copy(this._lockers),
+            waiters: copy(this._waiters),
         }
     }
 
