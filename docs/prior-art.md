@@ -1,8 +1,12 @@
 # Prior art
 
+In one line: zone controlled, token based block signalling on a graph, with
+online hand-over-hand locking.
+
 Graferse is not a planner. It takes paths that something else chose and
 decides, at run time, who may occupy what and when. That job has been done
-before, under three different names.
+before, under three different names, and computer science has three more for
+parts of it.
 
 ## Railway signalling
 
@@ -59,6 +63,31 @@ The other main branch is Petri nets — see *Deadlock prediction and avoidance
 based on Petri nets for zone-control AGVS*, Int. J. Production Research
 33(12), 1995.
 
+## Concurrent programming and routing
+
+Three more names, from computer science rather than transport. None of them
+is the whole design, but each describes one part of it exactly.
+
+**Hand-over-hand locking.** Also called lock coupling, or crabbing when it is
+done in B-trees (Bayer and Schkolnick, 1977). A thread walking a linked
+structure holds the node it is on, takes the next one, and only then lets go
+of the one behind. `arrivedAt` does the same with nodes: current and next are
+held, and everything behind is released.
+
+**Group mutual exclusion.** Joung's generalisation of mutual exclusion (1998):
+a resource may be shared by any number of processes, as long as they all
+belong to the same session. The textbook case is the single-lane bridge,
+where cars going the same way may cross together but opposing cars may not.
+A bidirectional `LinkLock` is that rule, with the travel direction as the
+session.
+
+**Deadlock-free wormhole routing.** On an interconnect, a packet holds the
+channels along its route while it moves, so packets can wait on each other in
+a cycle. The standard cure is structural, not detection: forbid enough turns
+that no cycle can form (the turn model, Glass and Ni, 1992). Graferse is in
+the same camp. Direction claims and refusing to enter what you cannot leave
+rule the deadlock out by construction, instead of looking for it.
+
 ## What Graferse does not do
 
 Worth stating plainly, because it bounds what you can claim for it.
@@ -82,3 +111,8 @@ only cover the cases you declare.
 - [Persistent and Robust Execution of MAPF Schedules in Warehouses](https://ieeexplore.ieee.org/document/8620328/)
 - [Bidirectional Temporal Plan Graph](https://arxiv.org/abs/2401.00315)
 - [Deadlock prediction and avoidance based on Petri nets for zone-control AGVS](https://www.tandfonline.com/doi/abs/10.1080/00207549508904872)
+- Bayer and Schkolnick, *Concurrency of operations on B-trees*, Acta
+  Informatica 9, 1977
+- Joung, *Asynchronous group mutual exclusion*, PODC 1998
+- Glass and Ni, *The turn model for adaptive routing*, ISCA 1992
+- [Wormhole switching](https://en.wikipedia.org/wiki/Wormhole_switching)
