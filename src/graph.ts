@@ -204,6 +204,13 @@ class LinkLock {
                 : lockers.size > 0
         })
     }
+
+    // nobody holds or waits on either direction
+    isIdle() {
+        return Array.from(this._otherdir.keys()).every(dir =>
+            (this._lockers.get(dir)?.size ?? 0) === 0
+            && (this._waiters.get(dir)?.size ?? 0) === 0)
+    }
 }
 
 class OnewayLinkLock extends LinkLock {
@@ -256,6 +263,26 @@ class Graferse<T>
         return lock
     }
 
+    // Topology is yours: when a node or link goes away, drop its lock so
+    // clearAllLocks and stopWaitingEverywhere stop walking it.  Refuses a
+    // lock that is still held or waited on - removing it would strand
+    // waiters that can never be granted - and one that sits in a lock
+    // group, whose members setTopology has already contracted.
+    removeLock(lock: Lock): boolean {
+        if (lock.lockedBy.size > 0 || lock.waiting.size > 0) {
+            throw new Error(`cannot remove lock ${lock.id}: still held or waited on`)
+        }
+        if (this.lockGroups.some(group => group.includes(lock))) {
+            throw new Error(
+                `cannot remove lock ${lock.id}: member of a lock group; `
+                + `replace the group before removing the lock`)
+        }
+        const at = this.locks.indexOf(lock)
+        if (at === -1) return false
+        this.locks.splice(at, 1)
+        return true
+    }
+
     makeLinkLock(from: string, to: string, isBidirectional: boolean = false) {
         const linkLock = isBidirectional
             ? new LinkLock(from, to)
@@ -263,6 +290,17 @@ class Graferse<T>
 
         this.linkLocks.push(linkLock)
         return linkLock
+    }
+
+    // same contract as removeLock: idle only
+    removeLinkLock(linkLock: LinkLock): boolean {
+        if (!linkLock.isIdle()) {
+            throw new Error('cannot remove link lock: still held or waited on')
+        }
+        const at = this.linkLocks.indexOf(linkLock)
+        if (at === -1) return false
+        this.linkLocks.splice(at, 1)
+        return true
     }
 
     addListener(listener: () => void) {

@@ -29,6 +29,40 @@ describe('Graferse class', () => {
         expect(creator.locks).toEqual([lock1])
         expect(creator.linkLocks).toEqual([linkLock1])
     })
+    test('removing locks', () => {
+        const creator = new Graferse<Node>(node => node.id)
+        const lock = creator.makeLock('lock1')
+        const busy = creator.makeLock('busy')
+        const free = creator.makeLinkLock('a', 'b')
+        const held = creator.makeLinkLock('b', 'c', true)
+
+        // idle removal drops them from the sweep lists once
+        expect(creator.removeLock(lock)).toBe(true)
+        expect(creator.removeLock(lock)).toBe(false)
+        expect(creator.removeLinkLock(free)).toBe(true)
+        expect(creator.removeLinkLock(free)).toBe(false)
+        expect(creator.locks).toEqual([busy])
+        expect(creator.linkLocks).toEqual([held])
+
+        // held or waited-on locks stay, or waiters would never be granted
+        held.requestLock('agent1', 'b')
+        expect(() => creator.removeLinkLock(held)).toThrow(/still held or waited on/)
+
+        busy.forceLock('agent2')
+        expect(() => creator.removeLock(busy)).toThrow(/still held or waited on/)
+        busy.unlock('agent2')
+        expect(creator.removeLock(busy)).toBe(true)
+        expect(creator.locks).toEqual([])
+    })
+    test('a lock in a lock group cannot be removed', () => {
+        const creator = new Graferse<Node>(node => node.id)
+        const lock1 = creator.makeLock('lock1')
+        const lock2 = creator.makeLock('lock2')
+        creator.setLockGroup([lock1, lock2])
+
+        expect(() => creator.removeLock(lock1)).toThrow(/lock group/)
+        expect(creator.locks).toEqual([lock1, lock2])
+    })
     test('lock groups', () => {
         const creator = new Graferse<Node>(node => node.id)
         const lock1 = creator.makeLock('lock1')
