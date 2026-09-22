@@ -650,10 +650,11 @@ class Graferse<T>
                         this.lastCallCache.set(byWhom, () => arrivedAt(currentIdx))
 
 
-                        const beforeCount = 0, afterCount = 1
+                        // lock the next node (currentIdx is already held by
+                        // the agent standing there)
                         const lastIdx = path.length -1
-                        const firstToLock = Math.max(currentIdx - beforeCount, 0)      // first to be locked
-                        const lastToLock = Math.min(currentIdx + afterCount, lastIdx) // last to be locked
+                        const firstToLock = currentIdx               // first to be locked
+                        const lastToLock = Math.min(currentIdx + 1, lastIdx) // last to be locked
                         const whoCanMoveNow = new Set<string>()
 
                         const nextNodes: NextNode[] = []
