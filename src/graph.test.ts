@@ -776,6 +776,89 @@ describe('ngraph', () => {
         //   ^                            \
         //  /                              v
         // A                               H
+        //
+        // Two agents cross through the single bidirectional corridor:
+        // one enters at A and leaves at G, the other enters at H and
+        // leaves at B.  They want each other's side of the map.
+        const graph = ngraphCreateGraph<Lock, LinkLock>()
+        const creator = new Graferse<Node<Lock>>(node => node.id)
+
+        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const nodeA = makeNode('a')
+        const nodeB = makeNode('b')
+        const nodeC = makeNode('c')
+        const nodeD = makeNode('d')
+        const nodeE = makeNode('e')
+        const nodeF = makeNode('f')
+        const nodeG = makeNode('g')
+        const nodeH = makeNode('h')
+
+        const lockCD = creator.makeLinkLock('c', 'd', true)
+        const lockDE = creator.makeLinkLock('d', 'e', true)
+        const lockEF = creator.makeLinkLock('e', 'f', true)
+
+        // one way approaches and exits
+        graph.addLink('a', 'c', creator.makeLinkLock('a', 'c'))
+        graph.addLink('c', 'b', creator.makeLinkLock('c', 'b'))
+        graph.addLink('h', 'f', creator.makeLinkLock('h', 'f'))
+        graph.addLink('f', 'g', creator.makeLinkLock('f', 'g'))
+
+        // the corridor itself
+        graph.addLink('c', 'd', lockCD)
+        graph.addLink('d', 'c', lockCD)
+        graph.addLink('d', 'e', lockDE)
+        graph.addLink('e', 'd', lockDE)
+        graph.addLink('e', 'f', lockEF)
+        graph.addLink('f', 'e', lockEF)
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        const pathSWtoNE = pathFinder.find('a', 'g').reverse() // a c d e f g
+        const pathSEtoNW = pathFinder.find('h', 'b').reverse() // h f e d c b
+        expect(pathSWtoNE.map(n => n.id)).toEqual(['a', 'c', 'd', 'e', 'f', 'g'])
+        expect(pathSEtoNW.map(n => n.id)).toEqual(['h', 'f', 'e', 'd', 'c', 'b'])
+
+        const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
+        let granted1: Array<NextNode> = []
+        let granted2: Array<NextNode> = []
+        const agent1 = makeLocker('agent1').makePathLocker(pathSWtoNE)(
+            nn => { granted1 = nn })
+        const agent2 = makeLocker('agent2').makePathLocker(pathSEtoNW)(
+            nn => { granted2 = nn })
+
+        // agent1 claims the whole run through to its exit, because the
+        // corridor is bidirectional and only a one way edge is safe to stop on
+        agent1.arrivedAt(0)
+        expect(granted1.map(n => n.node)).toEqual(['a', 'c'])
+        expect(lockEF.isLocked()).toBeTruthy()
+
+        // agent2 may enter at H but is refused the corridor: agent1 already
+        // reserved it end to end, and turning back inside is impossible
+        agent2.arrivedAt(0)
+        expect(granted2.map(n => n.node)).toEqual(['h'])
+        expect(nodeF.data.isLocked('agent2')).toBeFalsy()
+
+        // agent1 runs the corridor to its exit, releasing behind itself
+        for (const id of ['c', 'd', 'e', 'f', 'g']) {
+            agent1.arrivedAt(pathSWtoNE.findIndex(n => n.id === id))
+        }
+        expect(granted1.map(n => n.node)).toEqual(['g'])
+        expect(nodeG.data.isLocked('agent1')).toBeTruthy()
+
+        // the corridor is free, so agent2 is granted the whole way through
+        // to B without either of them ever meeting inside
+        agent2.arrivedAt(0)
+        expect(granted2.map(n => n.node)).toEqual(['h', 'f'])
+        for (const id of ['f', 'e', 'd', 'c', 'b']) {
+            agent2.arrivedAt(pathSEtoNW.findIndex(n => n.id === id))
+        }
+        expect(granted2.map(n => n.node)).toEqual(['b'])
+        expect(nodeB.data.isLocked('agent2')).toBeTruthy()
+
+        // they swapped sides; neither is on the other's half of the map
+        expect(nodeA.data.isLocked()).toBeFalsy()
+        expect(nodeH.data.isLocked()).toBeFalsy()
+        expect(nodeG.data.isLocked('agent1')).toBeTruthy()
+        expect(nodeB.data.isLocked('agent2')).toBeTruthy()
     })
 
     test('bidirectional corridor convoy', () => {
