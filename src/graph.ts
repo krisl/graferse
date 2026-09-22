@@ -233,6 +233,10 @@ class Graferse<T>
     linkLocks: LinkLock[] = []
     lockGroups: Lock[][] = []
     lastCallCache = new Map<string,() => void>()
+    // agents with a live path locker.  notifyWaiters can only replay an
+    // agent id, so one agent may own one path: a second makePathLocker
+    // for the same id would overwrite lastCallCache and strand the first
+    private _agentsWithPath = new Set<string>()
     // "groupIndex:groupIndex" for every lock group pair joined in both
     // directions, stored under both orders
     private _quotientEdges = new Set<string>()
@@ -304,6 +308,7 @@ class Graferse<T>
             // nothing is left to replay, and the closure would otherwise be held
             // for the life of the graph
             this.lastCallCache.delete(byWhom)
+            this._agentsWithPath.delete(byWhom)
             const whoCanMoveNow = new Set<string>()
             for (const lock of this.locks) {
                 addAll(whoCanMoveNow, lock.unlock(byWhom))
@@ -484,6 +489,15 @@ class Graferse<T>
             }
 
             const makePathLocker = (path: T[]) => (callback: NextNodes) => {
+                // notifyWaiters can only find an agent by id, so a second
+                // path for the same agent would overwrite lastCallCache and
+                // leave waiters replaying the wrong corridor
+                if (this._agentsWithPath.has(byWhom)) {
+                    throw new Error(
+                        `agent ${byWhom} already has a path locker; `
+                        + `clear it before making another`)
+                }
+                this._agentsWithPath.add(byWhom)
                 // Walks the path from a node, reserving every bidirectional
                 // edge until it reaches a safe place to stop.  Reports:
                 //   'clear'   reserved through to a safe stop - take the node
@@ -615,6 +629,7 @@ class Graferse<T>
                     try {
                         // this path is over, so it must never be replayed
                         this.lastCallCache.delete(byWhom)
+                        this._agentsWithPath.delete(byWhom)
                         const whoCanMoveNow = new Set<string>()
                         for (let i = 0; i < path.length; i++) {
                             addAll(whoCanMoveNow, getLock(path[i]).unlock(byWhom))
@@ -717,6 +732,11 @@ class Graferse<T>
                             if (getLock(path[i]).isLocked(byWhom)) lastLock = i
                         }
                         if (lastLock === -1) return clearAllPathLocks()
+                        // the path is over: the agent idles on its last node
+                        // and waits nowhere, so there is nothing to replay and
+                        // it is free to start its next path
+                        this.lastCallCache.delete(byWhom)
+                        this._agentsWithPath.delete(byWhom)
                         const whoCanMoveNow = new Set<string>()
                         for (let i = 0; i < path.length; i++) {
                             // unlock every link to ensure we dont leave any dangling

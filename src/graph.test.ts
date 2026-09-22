@@ -1705,6 +1705,68 @@ describe('Components', () => {
             // agent3 is still shut out of the group
             expect(creator.isLockGroupAvailable(nodeB, 'agent3')).toBe(false)
         })
+
+        test('one agent may only hold one path locker at a time', () => {
+            const creator = new Graferse<string>(x => x)
+            const locks = new Map(
+                ['a', 'b', 'c', 'd'].map(id => [id, creator.makeLock(id)]))
+            const ab = creator.makeLinkLock('a', 'b', true)
+            const bc = creator.makeLinkLock('b', 'c', true)
+            const cd = creator.makeLinkLock('c', 'd', true)
+            const links = new Map([
+                ['a>b', ab], ['b>a', ab],
+                ['b>c', bc], ['c>b', bc],
+                ['c>d', cd], ['d>c', cd],
+            ])
+            const makeLocker = creator.makeMakeLocker(
+                (x: string) => locks.get(x)!,
+                (from: string, to: string) => links.get(`${from}>${to}`)!,
+            )
+
+            const locker = makeLocker('agent1')
+            locker.makePathLocker(['a', 'b'])(() => {})
+            // same agent, second path: lastCallCache is keyed by agent id, so
+            // the first path's replay closure would be overwritten
+            expect(() => locker.makePathLocker(['a', 'c'])(() => {}))
+                .toThrow(/already has a path locker/)
+
+            // a different agent is unaffected
+            makeLocker('agent2').makePathLocker(['a', 'b'])(() => {})
+
+            // clearing frees the id for a fresh path
+            locker.clearAllLocks()
+            expect(() => locker.makePathLocker(['a', 'c'])(() => {}))
+                .not.toThrow()
+        })
+
+        test('an idle hold ends the path, so the agent can start its next one', () => {
+            // clearAllExceptLastPathLocks is how an agent parks on the graph
+            // between tours.  It ends the path: the agent keeps only the node
+            // it sits on, and waits nowhere, so there is nothing to replay.
+            const creator = new Graferse<string>(x => x)
+            const locks = new Map(
+                ['a', 'b', 'c'].map(id => [id, creator.makeLock(id)]))
+            const ab = creator.makeLinkLock('a', 'b', true)
+            const bc = creator.makeLinkLock('b', 'c', true)
+            const links = new Map([
+                ['a>b', ab], ['b>a', ab],
+                ['b>c', bc], ['c>b', bc],
+            ])
+            const locker = creator.makeMakeLocker(
+                (x: string) => locks.get(x)!,
+                (from: string, to: string) => links.get(`${from}>${to}`)!,
+            )('agent1')
+
+            const tour = locker.makePathLocker(['a', 'b'])(() => {})
+            tour.arrivedAt(0)
+            tour.arrivedAt(1)
+            tour.clearAllExceptLastPathLocks()
+            expect(locks.get('b')!.isLocked('agent1')).toBeTruthy()
+            expect(creator.lastCallCache.has('agent1')).toBeFalsy()
+
+            expect(() => locker.makePathLocker(['b', 'c'])(() => {}).arrivedAt(0))
+                .not.toThrow()
+        })
     })
 
     describe('LinkLock', () => {
