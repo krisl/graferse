@@ -13,6 +13,21 @@ const getLockForLink = (from: Node, to: Node) => {
 const arriveByNodeId = (arrivedAt: (i: number) => void, path: Array<Node<Lock>>) =>
     (id: string) => arrivedAt(path.findIndex(node => node.id === id))
 
+// Strict: never invent a link. A path that walks an edge the fixture never
+// defined is a bug in the test, not something to paper over.
+const requireLinkLock = <T>(
+    creator: Graferse<T>,
+    getLock: (x: T) => Lock,
+    from: T, to: T,
+) => {
+    const a = getLock(from).id
+    const b = getLock(to).id
+    const lock = creator.linkLocks.find(l =>
+        (l.from === a && l.to === b) || (l.from === b && l.to === a))
+    if (!lock) throw new Error(`no link lock for ${a} -> ${b}`)
+    return lock
+}
+
 describe('Graferse class', () => {
     test('creating locks', () => {
         const creator = new Graferse<Node>(node => node.id)
@@ -82,7 +97,7 @@ describe('Graferse class', () => {
     })
     test('an abandoned path is not revived by a lock group waiter', () => {
         const creator = new Graferse<Lock>(lock => names.get(lock) as string)
-        const getLockForLink = (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id)
+        const getLockForLink = (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to)
 
         const nodeA = creator.makeLock('nodeA')
         const nodeB = creator.makeLock('nodeB')
@@ -95,6 +110,9 @@ describe('Graferse class', () => {
         names.set(nodeB, 'nodeB')
         names.set(nodeX, 'nodeX')
         names.set(nodeY, 'nodeY')
+
+        creator.makeLinkLock('nodeA', 'nodeB')
+        creator.makeLinkLock('nodeX', 'nodeY')
 
         // nodeB and nodeY exclude each other, but sit on separate paths
         creator.setLockGroup([nodeB, nodeY])
@@ -189,7 +207,7 @@ describe('Graferse class', () => {
     })
     test('clearAllExceptLastPathLocks keeps the node the agent sits on', () => {
         const creator = new Graferse<Lock>(lock => names.get(lock) as string)
-        const getLockForLink = (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id)
+        const getLockForLink = (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to)
 
         const nodeA = creator.makeLock('nodeA')
         const nodeB = creator.makeLock('nodeB')
@@ -198,6 +216,9 @@ describe('Graferse class', () => {
         names.set(nodeA, 'nodeA')
         names.set(nodeB, 'nodeB')
         names.set(nodeX, 'nodeX')
+
+        creator.makeLinkLock('nodeA', 'nodeB')
+        creator.makeLinkLock('nodeX', 'nodeB')
 
         const makeLocker = creator.makeMakeLocker(node => node, getLockForLink)
         const agent1At = makeLocker('agent1').makePathLocker([nodeA, nodeB])((_: NextNode[]) => {})
@@ -244,6 +265,10 @@ describe('Graferse class', () => {
             names.set(westQ, 'westQ')
             names.set(eastQ, 'eastQ')
             names.set(eastP, 'eastP')
+            creator.makeLinkLock('X', 'westP')
+            creator.makeLinkLock('westP', 'westQ')
+            creator.makeLinkLock('eastQ', 'eastP')
+            creator.makeLinkLock('eastP', 'eastQ')
             return { creator, X, westP, westQ, eastQ, eastP, names }
         }
 
@@ -293,7 +318,7 @@ describe('Graferse class', () => {
 
             const makeLocker = creator.makeMakeLocker(
                 node => node,
-                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+                (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to),
             )
             let seen1: string[] = [], seen2: string[] = []
             const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(
@@ -334,7 +359,7 @@ describe('Graferse class', () => {
 
             const makeLocker = creator.makeMakeLocker(
                 node => node,
-                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+                (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to),
             )
             let seen2: string[] = []
             const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(() => {})
@@ -358,7 +383,7 @@ describe('Graferse class', () => {
 
             const makeLocker = creator.makeMakeLocker(
                 node => node,
-                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+                (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to),
             )
             let seen2: string[] = []
             const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(() => {})
@@ -380,7 +405,7 @@ describe('Graferse class', () => {
 
             const makeLocker = creator.makeMakeLocker(
                 node => node,
-                (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id),
+                (from: Lock, to: Lock) => requireLinkLock(creator, (x: Lock) => x, from, to),
             )
             let seen1: string[] = [], seen2: string[] = []
             const agent1 = makeLocker('agent1').makePathLocker([X, westP, westQ])(
@@ -438,9 +463,8 @@ describe('Graferse class', () => {
 
 describe('no dependencies', () => {
     test('basic locking with identities', () => {
-        const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock(from.id, to.id)
-        }
+        const getLockForLink = (from: Lock, to: Lock) =>
+            requireLinkLock(creator, (x: Lock) => x, from, to)
         const creator = new Graferse<Lock>(
             lock => lockToString.get(lock) as string// what we are going to give current nodes in
         )
@@ -459,6 +483,11 @@ describe('no dependencies', () => {
         lockToString.set(nodeC, 'nodeC')
         lockToString.set(nodeX, 'nodeX')
         lockToString.set(nodeY, 'nodeY')
+
+        creator.makeLinkLock('nodeA', 'nodeB')
+        creator.makeLinkLock('nodeB', 'nodeC')
+        creator.makeLinkLock('nodeX', 'nodeB')
+        creator.makeLinkLock('nodeB', 'nodeY')
 
         const makeLocker = creator.makeMakeLocker(
             node => node,
@@ -515,9 +544,8 @@ describe('no dependencies', () => {
     })
 
     test('basic locking', () => {
-        const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock(from.id, to.id)
-        }
+        const getLockForLink = (from: Lock, to: Lock) =>
+            requireLinkLock(creator, (x: Lock) => x, from, to)
         const creator = new Graferse<Lock>(node => node.id)
         const nodeA = creator.makeLock('nodeA')
         const nodeB = creator.makeLock('nodeB')
@@ -528,6 +556,10 @@ describe('no dependencies', () => {
         const nodeY = creator.makeLock('nodeY')
         const path2 = [nodeX, nodeB, nodeY]
 
+        creator.makeLinkLock('nodeA', 'nodeB')
+        creator.makeLinkLock('nodeB', 'nodeC')
+        creator.makeLinkLock('nodeX', 'nodeB')
+        creator.makeLinkLock('nodeB', 'nodeY')
 
         const makeLocker = creator.makeMakeLocker(node => node, getLockForLink)
 
@@ -1925,18 +1957,20 @@ describe('notifyWaiters cascade', () => {
 
 describe('Exceptions', () => {
     test('arrivedAt bounds', () => {
-        const getLockForLink = (from: Lock, to: Lock) => {
-            return creator.makeLinkLock(from.id, to.id)
-        }
+        const getLockForLink = (from: Lock, to: Lock) =>
+            requireLinkLock(creator, (x: Lock) => x, from, to)
         const creator = new Graferse<Lock>(node => node?.id)
         const nodeA = creator.makeLock('nodeA')
         const nodeB = creator.makeLock('nodeB')
         const nodeC = creator.makeLock('nodeC')
         const nodeX = creator.makeLock('nodeX')
 
+        creator.makeLinkLock('nodeA', 'nodeB')
+        creator.makeLinkLock('nodeB', 'nodeC')
+
         const makeLocker = creator.makeMakeLocker(
             node => node,
-            (from, to) => creator.makeLinkLock(from.id, to.id))
+            (from, to) => requireLinkLock(creator, (x: Lock) => x, from, to))
 
         const test1Path = [nodeA, nodeB, nodeC]
         let forwardPath: Array<NextNode> = []
