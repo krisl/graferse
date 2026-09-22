@@ -1316,6 +1316,45 @@ describe('ngraph', () => {
         expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}])
         expect(s3ForwardPath).toEqual([{index: 1, node: 'b'}, {index: 2, node: 'c'}])
     })
+    // A runs one way into the bidirectional middle, G runs one way into the
+    // other end, and each agent wants the spur on the far side: agent1 from A
+    // to Z, agent2 from G to Y.  With bidirectionalEF the E to F leg is two
+    // way as well, which moves where agent2 is allowed to wait.
+    //
+    //               Y
+    //               ^
+    //                \
+    //                 v
+    // A ----> B ----> C <---> D <---> E <--?--- F <---- G
+    //                                 ^
+    //                                  \
+    //                                   v
+    //                                   Z
+    const makeOpposingGraph = ({ bidirectionalEF = false } = {}) => {
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
+        for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'y', 'z']) makeNode(id)
+
+        graph.addLink('a', 'b', creator.makeLinkLock('a', 'b'))
+        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
+        addBiLink('c', 'd', creator.makeLinkLock('c', 'd', true))
+        addBiLink('d', 'e', creator.makeLinkLock('d', 'e', true))
+        graph.addLink('g', 'f', creator.makeLinkLock('g', 'f'))
+        if (bidirectionalEF) {
+            addBiLink('f', 'e', creator.makeLinkLock('e', 'f', true))
+        } else {
+            graph.addLink('f', 'e', creator.makeLinkLock('f', 'e'))
+        }
+        addBiLink('c', 'y', creator.makeLinkLock('c', 'y', true))
+        addBiLink('e', 'z', creator.makeLinkLock('e', 'z', true))
+
+        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
+        return {
+            creator,
+            path1: pathFinder.find('a', 'z').reverse(),
+            path2: pathFinder.find('g', 'y').reverse(),
+        }
+    }
+
     test('two robots opposing directions never adjacent nodes', () => {
         //
         //               Y
@@ -1327,34 +1366,7 @@ describe('ngraph', () => {
         //                                  \
         //                                   v
         //                                   Z
-        const { graph, creator, makeNode, addBiLink } = makeGraph()
-        const nodeA = makeNode('a')
-        const nodeB = makeNode('b')
-        const nodeC = makeNode('c')
-        const nodeD = makeNode('d')
-        const nodeE = makeNode('e')
-        const nodeF = makeNode('f')
-        const nodeG = makeNode('g')
-        const nodeY = makeNode('y')
-        const nodeZ = makeNode('z')
-
-        const lockCD = creator.makeLinkLock('c', 'd', true)
-        const lockDE = creator.makeLinkLock('d', 'e', true)
-        const lockCY = creator.makeLinkLock('c', 'y', true)
-        const lockEZ = creator.makeLinkLock('e', 'z', true)
-
-        graph.addLink('a', 'b', creator.makeLinkLock('a', 'b'))
-        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
-        addBiLink('c', 'd', lockCD)
-        addBiLink('d', 'e', lockDE)
-        graph.addLink('g', 'f', creator.makeLinkLock('g', 'f'))
-        graph.addLink('f', 'e', creator.makeLinkLock('f', 'e'))
-        addBiLink('c', 'y', lockCY)
-        addBiLink('e', 'z', lockEZ)
-
-        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
-        const path1 = pathFinder.find('a', 'z').reverse()
-        const path2 = pathFinder.find('g', 'y').reverse()
+        const { creator, path1, path2 } = makeOpposingGraph()
 
         const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         let nextNodes1: Array<NextNode> = []
@@ -1410,35 +1422,7 @@ describe('ngraph', () => {
         //                                  \
         //                                   v
         //                                   Z
-        const { graph, creator, makeNode, addBiLink } = makeGraph()
-        const nodeA = makeNode('a')
-        const nodeB = makeNode('b')
-        const nodeC = makeNode('c')
-        const nodeD = makeNode('d')
-        const nodeE = makeNode('e')
-        const nodeF = makeNode('f')
-        const nodeG = makeNode('g')
-        const nodeY = makeNode('y')
-        const nodeZ = makeNode('z')
-
-        const lockCD = creator.makeLinkLock('c', 'd', true)
-        const lockDE = creator.makeLinkLock('d', 'e', true)
-        const lockEF = creator.makeLinkLock('e', 'f', true)
-        const lockCY = creator.makeLinkLock('c', 'y', true)
-        const lockEZ = creator.makeLinkLock('e', 'z', true)
-
-        graph.addLink('a', 'b', creator.makeLinkLock('a', 'b'))
-        graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
-        addBiLink('c', 'd', lockCD)
-        addBiLink('d', 'e', lockDE)
-        graph.addLink('g', 'f', creator.makeLinkLock('g', 'f'))
-        addBiLink('f', 'e', lockEF)
-        addBiLink('c', 'y', lockCY)
-        addBiLink('e', 'z', lockEZ)
-
-        const pathFinder = ngraphPath.aStar(graph, { oriented: true })
-        const path1 = pathFinder.find('a', 'z').reverse()
-        const path2 = pathFinder.find('g', 'y').reverse()
+        const { creator, path1, path2 } = makeOpposingGraph({ bidirectionalEF: true })
 
         const makeLocker = creator.makeMakeLocker(node => node.data, getLockForLink)
         let nextNodes1: Array<NextNode> = []
