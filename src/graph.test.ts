@@ -462,23 +462,19 @@ describe('no dependencies', () => {
         expect(forwardPaths2.at(-1)).toEqual([{index: 0, node: 'nodeX'}, {index: 1, node: 'nodeB'}]) // nodeB is now unlocked
 
         test1At.clearAllPathLocks()
-        //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPaths2).toEqual(['nodeB', 'nodeX']) // no change
         expect(nodeX.isLocked()).toBeTruthy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
 
         test2At.clearAllPathLocks()
-        //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPaths2).toEqual([]) // no change
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
@@ -532,23 +528,19 @@ describe('no dependencies', () => {
         expect(forwardPath2).toEqual([{index: 0, node: 'nodeX'}, {index: 1, node: 'nodeB'}]) // nodeB is now unlocked
 
         test1At.clearAllPathLocks()
-        //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPath2).toEqual([nodeB, nodeX]) // no change
         expect(nodeX.isLocked()).toBeTruthy()
         expect(nodeB.isLocked()).toBeTruthy()
         expect(nodeY.isLocked()).toBeFalsy()
 
         test2At.clearAllPathLocks()
-        //expect(forwardPath1).toEqual([])
         expect(nodeA.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeC.isLocked()).toBeFalsy()
 
-        //expect(forwardPath2).toEqual([]) // no change
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeB.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
@@ -977,12 +969,10 @@ describe('ngraph', () => {
         expect(nodeI.data.isLocked()).toBeFalsy()
 
         // all bidirectional links are locked until path ends
-        // expect(linkAC.data.isLocked()).toBeFalsy() // not bidirectional, we dont care
         expect(linkCD.data.isLocked()).toBeTruthy()
         expect(linkDE.data.isLocked()).toBeTruthy()
         expect(linkEF.data.isLocked()).toBeTruthy()
         expect(linkFG.data.isLocked()).toBeTruthy()
-        // expect(linkGH.data.isLocked()).toBeFalsy() // not bidrections, we dont care
 
         expect(s1NextPaths).toEqual([[{index: 0, node: 'a'}, {index: 1, node: 'c'}]])
         expect(s1calls).toEqual(1)
@@ -1158,13 +1148,10 @@ describe('ngraph', () => {
 
         expect(linkAB.data.isLocked("agent1")).toBeTruthy()
         expect(linkBC.data.isLocked("agent1")).toBeTruthy()
-        //expect(linkCD.data.isLocked("agent2")).toBeTruthy()
-        //expect(linkDC.data.isLocked("agent2")).toBeTruthy()
         expect(linkCB.data.isLocked("agent1")).toBeTruthy()
         expect(linkBA.data.isLocked("agent1")).toBeTruthy()
         expect(linkCE.data.isLocked()).toBeFalsy()
 
-        //console.dir({s2Path}, {depth: null})
         // lets continue down the hallway
         s1LockNext.arrivedAt(s1Path.indexOf(nodeB))
         expect(s1ForwardPath).toEqual([{index: 1, node: 'b'}, {index: 2, node: 'c'}])
