@@ -3,5 +3,17 @@
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  "clearMocks": true
+  "clearMocks": true,
+  "transform": {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "module": "commonjs",
+          "moduleResolution": "node10",
+          "isolatedModules": true
+        }
+      }
+    ]
+  }
 }
