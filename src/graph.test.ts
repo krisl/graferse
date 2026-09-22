@@ -1261,7 +1261,7 @@ describe('ngraph', () => {
         expect(s2ForwardPath).toEqual([{index: 0, node: 'd'}])
         expect(s3ForwardPath).toEqual([{index: 1, node: 'b'}, {index: 2, node: 'c'}])
     })
-    test('two robots opposing directions never adject nodes', () => {
+    test('two robots opposing directions never adjacent nodes', () => {
         //
         //               Y
         //               ^
@@ -1364,7 +1364,7 @@ describe('ngraph', () => {
         expect(nextNodes1).toEqual([{index: 5, node: 'z'}])
         expect(nextNodes2).toEqual([{index: 1, node: 'f'}, {index: 2, node: 'e'}]) // now we can move to E
     })
-    test('two robots opposing directions never adject nodes - part2', () => {
+    test('two robots opposing directions never adjacent nodes - part2', () => {
         //
         //               Y
         //               ^
@@ -1643,7 +1643,7 @@ describe('ngraph', () => {
 
         s1LockNext.arrivedAt(s1Path.indexOf(nodeA))
         // its current and next nodes are locked
-        // nodeB omitted becuase agent encountered on bidir path
+        // nodeB omitted because agent encountered on bidir path
         expect(s1ForwardPath).toEqual([{index: 0, node: 'a'}/*, {index: 1, node: 'b'}*/])
         expect(nodeA.data.isLocked()).toBeTruthy()
         expect(nodeB.data.isLocked()).toBeFalsy()
