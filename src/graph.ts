@@ -244,6 +244,10 @@ class Graferse<T>
     // agent id, so one agent may own one path: a second makePathLocker
     // for the same id would overwrite lastCallCache and strand the first
     private _agentsWithPath = new Set<string>()
+    // pending waiters for the cascade currently draining.  nested
+    // notifyWaiters calls unshift here instead of recursing
+    private _notifyQueue: string[] = []
+    private _notifying = false
     // "groupIndex:groupIndex" for every lock group pair joined in both
     // directions, stored under both orders
     private _quotientEdges = new Set<string>()
@@ -313,29 +317,51 @@ class Graferse<T>
         }
     }
 
-    // Each waiter is told to try again by replaying its last arrivedAt, and
-    // that call ends by notifying its own waiters.  So a single release runs
-    // the whole freed chain synchronously, nested one stack frame deep per
-    // agent, before the original caller returns.  Three limits follow:
+    // Each waiter is told to try again by replaying its last arrivedAt.  That
+    // call may free further waiters, which enqueue at the front of the queue
+    // so the walk stays depth-first: A, then A's cascade, then B - the same
+    // order the old recursion produced, but with O(1) stack regardless of how
+    // long the freed chain is.  Everything still runs synchronously before
+    // the original caller returns.
     //
-    //   - there is no depth guard, so a long chain of freed agents can reach
-    //     the stack limit
-    //   - agents that keep freeing each other are not detected, only the lock
+    // Two limits remain:
+    //
+    //   - agents that keep freeing each other are not detected; only the lock
     //     state changing at each step ends the cascade
     //   - a listener or callback that does heavy work blocks every agent still
     //     queued behind it
     //
-    // It throws when a waiter has no cached call, which happens if you took a
+    // Listeners fire once when the top-level cascade drains, not once per
+    // nested hop.
+    //
+    // Throws when a waiter has no cached call, which happens if you took a
     // lock with requestLock directly instead of through arrivedAt.  There is
     // no way to tell such an agent to retry, so the alternative is a silent
-    // stall.
+    // stall.  On throw the rest of the queue is dropped: half a cascade is
+    // not resumed on the next release.
     notifyWaiters(whoCanMoveNow: Set<string>) {
-        for (const waiter of whoCanMoveNow) {
-            const lastCall = this.lastCallCache.get(waiter)
-            if (!lastCall) {
-                throw new Error(`lastCallCached did not have expect entry for ${waiter}`)
+        if (this._notifying) {
+            // nested: run these before whatever is already queued, so a
+            // waiter's own cascade finishes before its siblings
+            this._notifyQueue.unshift(...whoCanMoveNow)
+            return
+        }
+
+        this._notifyQueue = [...whoCanMoveNow]
+        this._notifying = true
+        try {
+            while (this._notifyQueue.length > 0) {
+                const waiter = this._notifyQueue.shift() as string
+                const lastCall = this.lastCallCache.get(waiter)
+                if (!lastCall) {
+                    throw new Error(`lastCallCached did not have expect entry for ${waiter}`)
+                }
+                lastCall()
             }
-            lastCall()
+        } finally {
+            this._notifying = false
+            // drop anything a throwing callback left behind
+            this._notifyQueue = []
         }
         this.notifyListeners()
     }

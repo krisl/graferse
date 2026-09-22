@@ -1881,11 +1881,45 @@ describe('Listeners', () => {
         creator.notifyWaiters(new Set())
         expect(listenCallbackCounter).toEqual(2)
 
-        // recursive calling of notifyWaiters
+        // nested notifyWaiters only enqueues; listeners fire once when the
+        // whole cascade drains, not once per hop
         creator.lastCallCache.set("agent1", () => creator.notifyWaiters(new Set()))
         creator.notifyWaiters(new Set(["agent1"]))
-        // listener is invoked once for each agent
-        expect(listenCallbackCounter).toEqual(4)
+        expect(listenCallbackCounter).toEqual(3)
+    })
+})
+
+describe('notifyWaiters cascade', () => {
+    test('runs depth-first: A, A\'s cascade, then B', () => {
+        const order: string[] = []
+        const creator = new Graferse<string>(x => x)
+        creator.lastCallCache.set('A', () => {
+            order.push('A')
+            creator.notifyWaiters(new Set(['C', 'D']))
+        })
+        creator.lastCallCache.set('C', () => { order.push('C') })
+        creator.lastCallCache.set('D', () => { order.push('D') })
+        creator.lastCallCache.set('B', () => { order.push('B') })
+
+        creator.notifyWaiters(new Set(['A', 'B']))
+        expect(order).toEqual(['A', 'C', 'D', 'B'])
+    })
+
+    test('a long freed chain does not recurse into the stack', () => {
+        const creator = new Graferse<string>(x => x)
+        const length = 5000
+        for (let i = 0; i < length - 1; i++) {
+            creator.lastCallCache.set(`a${i}`, () => {
+                creator.notifyWaiters(new Set([`a${i + 1}`]))
+            })
+        }
+        creator.lastCallCache.set(`a${length - 1}`, () => {
+            creator.notifyWaiters(new Set())
+        })
+
+        // the old recursive notifyWaiters grew one stack frame per agent and
+        // would overflow well before 5000
+        expect(() => creator.notifyWaiters(new Set(['a0']))).not.toThrow()
     })
 })
 
