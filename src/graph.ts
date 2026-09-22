@@ -184,6 +184,14 @@ class LinkLock {
         return waiters
     }
 
+    // drops a wait without releasing anything byWhom has locked.  a waiter
+    // never holds the link, so removing one cannot free it for anyone else
+    stopWaiting (byWhom: string) {
+        for (const waiters of this._waiters.values()) {
+            waiters.delete(byWhom)
+        }
+    }
+
     isLocked(byWhom?: string) {
         return Array.from(this._otherdir.keys()).some(dir => {
             const lockers = this._lockers.get(dir) as Set<string>
@@ -298,18 +306,26 @@ class Graferse<T>
             }
             for (const linkLock of this.linkLocks) {
                 addAll(whoCanMoveNow, linkLock.unlock(byWhom))
+                // unlock never drops our own wait, only grants other waiters
+                linkLock.stopWaiting(byWhom)
             }
+            // link unlock can hand us back our own name; nothing left to replay
+            whoCanMoveNow.delete(byWhom)
             this.notifyWaiters(whoCanMoveNow)
         } finally { trace.close() }
     }
 
     // a waiter can be parked on a lock that is not on its own path, eg a lock
-    // group member.  such a wait outlives clearAllPathLocks unless swept here,
-    // and would later replay an abandoned path
+    // group member or a link met while reserving.  such a wait outlives
+    // clearAllPathLocks unless swept here, and would later replay an
+    // abandoned path
     stopWaitingEverywhere(byWhom: string) {
         const whoCanMoveNow = new Set<string>()
         for (const lock of this.locks) {
             addAll(whoCanMoveNow, lock.stopWaiting(byWhom))
+        }
+        for (const linkLock of this.linkLocks) {
+            linkLock.stopWaiting(byWhom)
         }
         return whoCanMoveNow
     }

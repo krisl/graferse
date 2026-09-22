@@ -97,6 +97,62 @@ describe('Graferse class', () => {
         expect(nodeX.isLocked()).toBeFalsy()
         expect(nodeY.isLocked()).toBeFalsy()
     })
+    test('an abandoned path is not revived by a link waiter', () => {
+        // a <-> b <-> c, both links bidirectional
+        const creator = new Graferse<string>(x => x)
+        const locks = new Map(['a', 'b', 'c'].map(id => [id, creator.makeLock(id)]))
+        const ab = creator.makeLinkLock('a', 'b', true)
+        const bc = creator.makeLinkLock('b', 'c', true)
+        const links = new Map([
+            ['a>b', ab],
+            ['b>a', ab],
+            ['b>c', bc],
+            ['c>b', bc],
+        ])
+        const makeLocker = creator.makeMakeLocker(
+            (x: string) => locks.get(x)!,
+            (from: string, to: string) => links.get(`${from}>${to}`)!,
+        )
+
+        const agent1At = makeLocker('agent1').makePathLocker(['a', 'b', 'c'])((_: NextNode[]) => {})
+        const agent2At = makeLocker('agent2').makePathLocker(['c', 'b', 'a'])((_: NextNode[]) => {})
+
+        // agent1 claims the corridor against the run
+        agent1At.arrivedAt(0)
+        // agent2 meets it on the b<->c link and waits there
+        agent2At.arrivedAt(0)
+        expect(bc.isWaiting('agent2')).toBeTruthy()
+
+        // agent2 gives up: its wait on the link must go with the path
+        agent2At.clearAllPathLocks()
+        expect(bc.isWaiting('agent2')).toBeFalsy()
+
+        // releasing the link must not replay agent2's dead path
+        expect(() => agent1At.clearAllPathLocks()).not.toThrow()
+    })
+    test('clearAllLocks drops a link waiter with no path to replay', () => {
+        const creator = new Graferse<string>(x => x)
+        const locks = new Map(['a', 'b', 'c'].map(id => [id, creator.makeLock(id)]))
+        const ab = creator.makeLinkLock('a', 'b', true)
+        const bc = creator.makeLinkLock('b', 'c', true)
+        const links = new Map([
+            ['a>b', ab],
+            ['b>a', ab],
+            ['b>c', bc],
+            ['c>b', bc],
+        ])
+        const makeLocker = creator.makeMakeLocker(
+            (x: string) => locks.get(x)!,
+            (from: string, to: string) => links.get(`${from}>${to}`)!,
+        )
+
+        makeLocker('agent1').makePathLocker(['a', 'b', 'c'])((_: NextNode[]) => {}).arrivedAt(0)
+        makeLocker('agent2').makePathLocker(['c', 'b', 'a'])((_: NextNode[]) => {}).arrivedAt(0)
+        expect(bc.isWaiting('agent2')).toBeTruthy()
+
+        creator.clearAllLocks('agent2')
+        expect(bc.isWaiting('agent2')).toBeFalsy()
+    })
     test('clearAllExceptLastPathLocks keeps the node the agent sits on', () => {
         const creator = new Graferse<Lock>(lock => names.get(lock) as string)
         const getLockForLink = (from: Lock, to: Lock) => creator.makeLinkLock(from.id, to.id)
