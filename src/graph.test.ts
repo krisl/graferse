@@ -9,6 +9,19 @@ const getLockForLink = (from: Node, to: Node) => {
     return link?.data
 }
 
+// every ngraph test opens the same way: a graph whose nodes carry Locks and
+// whose links carry LinkLocks, and a Graferse keyed on the node id
+const makeGraph = () => {
+    const graph = ngraphCreateGraph<Lock, LinkLock>()
+    const creator = new Graferse<Node<Lock>>(node => node.id)
+    const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+    const addBiLink = (a: string, b: string, lock: LinkLock) => [
+        graph.addLink(a, b, lock),
+        graph.addLink(b, a, lock),
+    ]
+    return { graph, creator, makeNode, addBiLink }
+}
+
 // the removed lockNext took a node id, where arrivedAt takes a path index
 const arriveByNodeId = (arrivedAt: (i: number) => void, path: Array<Node<Lock>>) =>
     (id: string) => arrivedAt(path.findIndex(node => node.id === id))
@@ -615,10 +628,7 @@ describe('no dependencies', () => {
 
 describe('ngraph', () => {
     test('basic locking', () => {
-        const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -669,10 +679,7 @@ describe('ngraph', () => {
     })
 
     test('basic locking - clearAllPathLocks', () => {
-        const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -718,10 +725,7 @@ describe('ngraph', () => {
     })
 
     test('unexpected queue jumping', () => {
-        const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -758,10 +762,7 @@ describe('ngraph', () => {
     })
 
     test('two robot mutual exclusion', () => {
-        const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -838,10 +839,7 @@ describe('ngraph', () => {
         // Two agents cross through the single bidirectional corridor:
         // one enters at A and leaves at G, the other enters at H and
         // leaves at B.  They want each other's side of the map.
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -920,10 +918,7 @@ describe('ngraph', () => {
     })
 
     test('bidirectional corridor convoy', () => {
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(x => x.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1124,10 +1119,7 @@ describe('ngraph', () => {
     })
 
     test('bidirectional corridor with early exit', () => {
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1234,10 +1226,7 @@ describe('ngraph', () => {
     })
 
     test('three agents bidirectional corridor with early exit', () => {
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1338,10 +1327,7 @@ describe('ngraph', () => {
         //                                  \
         //                                   v
         //                                   Z
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1356,13 +1342,6 @@ describe('ngraph', () => {
         const lockDE = creator.makeLinkLock('d', 'e', true)
         const lockCY = creator.makeLinkLock('c', 'y', true)
         const lockEZ = creator.makeLinkLock('e', 'z', true)
-
-        function addBiLink(a: string, b: string, lock: LinkLock) {
-            return [
-                graph.addLink(a, b, lock),
-                graph.addLink(b, a, lock),
-            ]
-        }
 
         graph.addLink('a', 'b', creator.makeLinkLock('a', 'b'))
         graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
@@ -1431,10 +1410,7 @@ describe('ngraph', () => {
         //                                  \
         //                                   v
         //                                   Z
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1450,13 +1426,6 @@ describe('ngraph', () => {
         const lockEF = creator.makeLinkLock('e', 'f', true)
         const lockCY = creator.makeLinkLock('c', 'y', true)
         const lockEZ = creator.makeLinkLock('e', 'z', true)
-
-        function addBiLink(a: string, b: string, lock: LinkLock) {
-            return [
-                graph.addLink(a, b, lock),
-                graph.addLink(b, a, lock),
-            ]
-        }
 
         graph.addLink('a', 'b', creator.makeLinkLock('a', 'b'))
         graph.addLink('b', 'c', creator.makeLinkLock('b', 'c'))
@@ -1522,9 +1491,7 @@ describe('ngraph', () => {
     // the whole lap.  A lap always contains the leader, so without the convoy
     // rule no second robot could ever set a wheel on the ring.
     const makeRing = () => {
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const ring = ['w', 'nw', 'ne', 'e', 'se', 'sw']
         const nodes = new Map(ring.map(id => [id, makeNode(id)]))
         for (let i = 0; i < ring.length; i++) {
@@ -1615,10 +1582,7 @@ describe('ngraph', () => {
     })
 
     test('directed', () => {
-        const graph = ngraphCreateGraph()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
@@ -1638,10 +1602,7 @@ describe('ngraph', () => {
         }
     })
     test('agent encountered on bidir path with reversal', () => {
-        const graph = ngraphCreateGraph<Lock, LinkLock>()
-        const creator = new Graferse<Node<Lock>>(node => node.id)
-
-        const makeNode = (id: string) => graph.addNode(id, creator.makeLock(id))
+        const { graph, creator, makeNode, addBiLink } = makeGraph()
         const nodeA = makeNode('a')
         const nodeB = makeNode('b')
         const nodeC = makeNode('c')
