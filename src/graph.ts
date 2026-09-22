@@ -98,6 +98,8 @@ class Lock {
 }
 
 class LinkLock {
+    readonly from: string
+    readonly to: string
     private _lockers = new Map<string, Set<string>>()
     private _waiters = new Map<string, Set<string>>()
     private _otherdir = new Map<string, string>()
@@ -132,6 +134,9 @@ class LinkLock {
     // the two directions are symmetric, so which is which does not matter,
     // only that each is recorded as the other's opposite
     constructor (from: string, to: string) {
+        this.from = from
+        this.to = to
+
         this._lockers.set(from, new Set<string>())
         this._lockers.set(to, new Set<string>())
 
