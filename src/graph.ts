@@ -438,11 +438,17 @@ class Graferse<T>
     isLockGroupAvailable(lock: Lock, byWhom: string) {
         const lockedNode = this.getLockedGroupLock(lock, byWhom)
         if (lockedNode) {
-            // wait on this locked node
+            // Park on the group member that is in the way.  requestLock can
+            // still succeed: isLockedByOtherThan is true whenever several
+            // holders share the lock, and byWhom may already be one of them.
+            // That is not a contradiction - we already hold it - so the group
+            // is available to us.  Throwing here would strand every lock this
+            // arrivedAt call has taken so far.
             if (lockedNode.requestLock(byWhom, "lockGroup")) {
-                throw new Error("lock was locked, but then not?")
+                trace.log(`group member ${lockedNode.id} already held by ${byWhom}`)
+            } else {
+                return false
             }
-            return false
         }
         return true
     }
@@ -462,8 +468,16 @@ class Graferse<T>
                     || (lock.isLockedByOtherThan(byWhom) ? lock : undefined)
                     || this.getLockedGroupLock(lock, byWhom)
                 if (lastEncouteredLock) {
+                    // Every candidate was held by someone other than byWhom
+                    // when picked, and nothing runs in between, so success can
+                    // only mean we are one of several holders sharing it
+                    // (isLockedByOtherThan is true then too).  There is nothing
+                    // to wait for, and a throw would abandon the node and link
+                    // locks this walk has already taken.  Were it ever free,
+                    // requestLock would take it here as a side effect.
                     if (lastEncouteredLock.requestLock(byWhom, "capacity")) {
-                        throw new Error("This lock should not succeed")
+                        trace.log(`${lastEncouteredLock.id} already held by ${byWhom}`)
+                        return false
                     }
                     return true
                 }

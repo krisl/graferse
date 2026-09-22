@@ -1681,6 +1681,30 @@ describe('Components', () => {
             expect(lock.requestLock('test', 'abc')).toBeTruthy()
             expect(lock.requestLock('test', 'def')).toBeTruthy()
         })
+
+        // isLockedByOtherThan is true whenever several holders share a lock,
+        // even when byWhom is one of them.  The group availability check used
+        // to treat the subsequent requestLock succeeding as a contradiction
+        // and threw - mid arrivedAt, after other locks were already taken.
+        test('a group member already shared by the caller is available', () => {
+            const creator = new Graferse<string>(x => x)
+            const nodeA = creator.makeLock('a')
+            const nodeB = creator.makeLock('b')
+            creator.setLockGroup([nodeA, nodeB])
+
+            // forceLock does not arbitrate; two names on one lock is the
+            // state isLockedByOtherThan reports as "held by someone else"
+            nodeA.forceLock('agent1')
+            nodeA.forceLock('agent2')
+
+            expect(nodeA.isLockedByOtherThan('agent1')).toBeTruthy()
+            expect(() => creator.isLockGroupAvailable(nodeB, 'agent1'))
+                .not.toThrow()
+            // agent1 already holds the blocking member, so the group is theirs
+            expect(creator.isLockGroupAvailable(nodeB, 'agent1')).toBe(true)
+            // agent3 is still shut out of the group
+            expect(creator.isLockGroupAvailable(nodeB, 'agent3')).toBe(false)
+        })
     })
 
     describe('LinkLock', () => {
