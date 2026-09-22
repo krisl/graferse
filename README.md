@@ -107,7 +107,9 @@ robot.clearAllExceptLastPathLocks()   // idle here, keep only the node it sits o
 ```
 
 Keeping the last node stops anyone routing through an agent that is parked
-on the graph.
+on the graph. The agent's next path takes that node over: if the path does
+not pass it, it is released once the agent arrives past its first node, or
+when the path is cleared.
 
 ## How it decides
 

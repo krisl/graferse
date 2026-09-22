@@ -1820,6 +1820,72 @@ describe('Components', () => {
             expect(() => locker.makePathLocker(['b', 'c'])(() => {}).arrivedAt(0))
                 .not.toThrow()
         })
+
+        describe('a new path takes over the idle hold', () => {
+            // agent1 idles on b after its first tour.  Its next tour starts
+            // from s, off b's links, so the path never passes b and would
+            // never release it on its own.
+            const setup = () => {
+                const creator = new Graferse<string>(x => x)
+                const locks = new Map(
+                    ['a', 'b', 's', 'c'].map(id => [id, creator.makeLock(id)]))
+                const ab = creator.makeLinkLock('a', 'b')
+                const sc = creator.makeLinkLock('s', 'c')
+                const links = new Map([['a>b', ab], ['s>c', sc]])
+                const makeLocker = creator.makeMakeLocker(
+                    (x: string) => locks.get(x)!,
+                    (from: string, to: string) => links.get(`${from}>${to}`)!,
+                )
+                const agent1 = makeLocker('agent1')
+                const first = agent1.makePathLocker(['a', 'b'])(() => {})
+                first.arrivedAt(0)
+                first.arrivedAt(1)
+                first.clearAllExceptLastPathLocks()
+
+                // agent2 queues up behind the idle agent1
+                let agent2Granted: string[] = []
+                makeLocker('agent2').makePathLocker(['a', 'b'])(
+                    (next: NextNode[]) => { agent2Granted = next.map(n => n.node) },
+                ).arrivedAt(0)
+                expect(agent2Granted).toEqual(['a'])
+                return { locks, agent1, agent2Granted: () => agent2Granted }
+            }
+
+            test('released once the agent drives off its start, waking the waiter', () => {
+                const { locks, agent1, agent2Granted } = setup()
+                const second = agent1.makePathLocker(['s', 'c'])(() => {})
+                second.arrivedAt(0)
+                // still standing on b
+                expect(locks.get('b')!.isLocked('agent1')).toBeTruthy()
+                second.arrivedAt(1)
+                expect(locks.get('b')!.isLocked('agent1')).toBeFalsy()
+                expect(agent2Granted()).toEqual(['a', 'b'])
+            })
+
+            test('released when the new path is dropped entirely', () => {
+                const { locks, agent1, agent2Granted } = setup()
+                const second = agent1.makePathLocker(['s', 'c'])(() => {})
+                second.arrivedAt(0)
+                second.clearAllPathLocks()
+                expect(locks.get('b')!.isLocked('agent1')).toBeFalsy()
+                expect(agent2Granted()).toEqual(['a', 'b'])
+            })
+
+            test('kept by an idle hold before the agent moved, for the path after', () => {
+                const { locks, agent1, agent2Granted } = setup()
+                const second = agent1.makePathLocker(['s', 'c'])(() => {})
+                second.arrivedAt(0)
+                second.clearAllExceptLastPathLocks()
+                // never left b
+                expect(locks.get('b')!.isLocked('agent1')).toBeTruthy()
+
+                const third = agent1.makePathLocker(['s', 'c'])(() => {})
+                third.arrivedAt(0)
+                third.arrivedAt(1)
+                expect(locks.get('b')!.isLocked('agent1')).toBeFalsy()
+                expect(agent2Granted()).toEqual(['a', 'b'])
+            })
+        })
     })
 
     describe('LinkLock', () => {

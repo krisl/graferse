@@ -567,6 +567,20 @@ class Graferse<T>
                         + `clear it before making another`)
                 }
                 this._agentsWithPath.add(byWhom)
+                // Locks the agent already holds that this path will never
+                // release on its own: the node it idled on after an earlier
+                // clearAllExceptLastPathLocks, when the new path does not pass
+                // it.  The agent still stands there, so they are kept until it
+                // leaves its start (arrivedAt past index 0) or drops the path.
+                const onPath = new Set(path.map(getLock))
+                let inherited = this.locks.filter(lock => lock.isLocked(byWhom) && !onPath.has(lock))
+                const releaseInherited = (whoCanMoveNow: Set<string>) => {
+                    for (const lock of inherited) {
+                        trace.log(`releasing inherited ${lock.id} for ${byWhom}`)
+                        addAll(whoCanMoveNow, lock.unlock(byWhom))
+                    }
+                    inherited = []
+                }
                 // Walks the path from a node, reserving every bidirectional
                 // edge until it reaches a safe place to stop.  Reports:
                 //   'clear'   reserved through to a safe stop - take the node
@@ -705,6 +719,7 @@ class Graferse<T>
                             if (i < path.length -1) // except the last node
                                 addAll(whoCanMoveNow, getLockForLink(path[i], path[i+1]).unlock(byWhom))
                         }
+                        releaseInherited(whoCanMoveNow)
                         addAll(whoCanMoveNow, this.stopWaitingEverywhere(byWhom))
                         // link locks can hand us back our own name, and we have
                         // nothing left to replay
@@ -776,6 +791,9 @@ class Graferse<T>
                             }
                             nextNodes.push({node: this.identity(path[i]), index: i})
                         }
+
+                        // past the start, the agent has left any node it idled on
+                        if (currentIdx >= 1) releaseInherited(whoCanMoveNow)
 
                         trace.log('can move now: %o', [...whoCanMoveNow])
                         summary.log(
