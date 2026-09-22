@@ -1374,16 +1374,6 @@ describe('ngraph', () => {
         addBiLink('e', 'z', lockEZ)
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
-        // TODO make a fully bidir test
-        // robot does not entire bidir path at all unless its path is clear to end
-        //
-        //               Y
-        //               ^
-        //                \
-        // A <---> B <---> C <---> D <---> E <---> F <----> G
-        //                                  \
-        //                                   v
-        //                                   Z
         const path1 = pathFinder.find('a', 'z').reverse()
         const path2 = pathFinder.find('g', 'y').reverse()
 
@@ -1478,16 +1468,6 @@ describe('ngraph', () => {
         addBiLink('e', 'z', lockEZ)
 
         const pathFinder = ngraphPath.aStar(graph, { oriented: true })
-        // TODO make a fully bidir test
-        // robot does not entire bidir path at all unless its path is clear to end
-        //
-        //               Y
-        //               ^
-        //                \
-        // A <---> B <---> C <---> D <---> E <---> F <----> G
-        //                                  \
-        //                                   v
-        //                                   Z
         const path1 = pathFinder.find('a', 'z').reverse()
         const path2 = pathFinder.find('g', 'y').reverse()
 
