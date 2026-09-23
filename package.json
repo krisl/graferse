@@ -1,6 +1,6 @@
 {
   "name": "graferse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Traverses a path through a directed graph, yielding to occupied nodes",
   "type": "module",
   "main": "dist/index.js",
