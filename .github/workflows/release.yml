@@ -1,0 +1,55 @@
+# Manual release: bumps package.json, tags, and creates a GitHub Release.
+#
+# Usage: gh workflow run release --field bump=minor
+#        (bump is one of patch, minor, major)
+#
+# A clean CI checkout is used on purpose: local `npm version` runs
+# `preversion` (lint) over your working dir, so untracked scratch files
+# break it. CI only sees committed files, so it does not.
+#
+# Creating the Release with type `published` is what fires
+# npm-publish.yml, which tests, lints, and publishes to npm over OIDC.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Semver part to bump'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write  # push the version commit + tag, and create the Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+          fetch-depth: 0  # full history so the version commit + tag push back cleanly
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+      - run: npm ci
+      # Fail early before bumping: same gates npm-publish.yml enforces.
+      - run: npm test -- --silent --verbose
+      - run: npm run lint
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      # `preversion` runs lint again here; on a clean checkout it passes.
+      - run: npm version ${{ inputs.bump }} -m "v%s"
+      - run: git push --follow-tags
+      - run: gh release create "v$(node -p "require('./package.json').version")" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
